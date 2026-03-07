@@ -1,0 +1,3 @@
+### 获取代理产品列表
+GET http://localhost:8080/api/proxy-product/list?countryCode=US&cityCode=NY&page=1&pageSize=10
+Accept: application/json
