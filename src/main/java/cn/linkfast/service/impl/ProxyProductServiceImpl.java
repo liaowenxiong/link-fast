@@ -131,7 +131,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
         return new PageResult<>(total, voList, queryDto.getPage(), queryDto.getPageSize());
     }
 
-    private static @NonNull ProxyProductSearchCondition buildSearchCondition(ProxyProductQueryDTO queryDto) {
+    private static @NonNull ProxyProductSearchCondition buildSearchCondition(@NonNull ProxyProductQueryDTO queryDto) {
         ProxyProductSearchCondition condition = new ProxyProductSearchCondition();
         condition.setCountryCode(queryDto.getCountryCode());
         condition.setCityCode(queryDto.getCityCode());
