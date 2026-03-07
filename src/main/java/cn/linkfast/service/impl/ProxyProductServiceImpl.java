@@ -60,7 +60,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     @Value("${api.ipv.appSecret}")
     private String appSecret;
 
-    @Value("${api.ipv.path.product_query")
+    @Value("${api.ipv.path.product_query}")
     private String productQueryPath;
 
     private String baseUrl; // 动态确定的基础地址
