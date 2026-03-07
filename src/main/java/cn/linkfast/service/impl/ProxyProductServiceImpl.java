@@ -13,6 +13,7 @@ import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import lombok.NonNull;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.hc.client5.http.classic.methods.HttpPost;
@@ -110,17 +111,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     @Override
     public PageResult<ProxyProductVO> getProxyProducts(ProxyProductQueryDTO queryDto) throws Exception {
         // 1. DTO 转 SearchCondition (计算 offset)
-        ProxyProductSearchCondition condition = new ProxyProductSearchCondition();
-        condition.setCountryCode(queryDto.getCountryCode());
-        condition.setCityCode(queryDto.getCityCode());
-
-        // 处理分页逻辑：只有当前端传了分页参数时才计算
-        if (queryDto.getPage() != null && queryDto.getPageSize() != null) {
-            condition.setLimit(queryDto.getPageSize());
-            // 公式：offset = (当前页码 - 1) * 每页条数
-            int offset = (queryDto.getPage() - 1) * queryDto.getPageSize();
-            condition.setOffset(Math.max(offset, 0)); // 防止负数
-        }
+        ProxyProductSearchCondition condition = buildSearchCondition(queryDto);
 
         // 2. 查询总条数 (用于分页组件显示总页数)
         int total = proxyProductDAO.countProxyProduct(condition);
@@ -138,6 +129,21 @@ public class ProxyProductServiceImpl implements ProxyProductService {
 
         // 5. 封装返回
         return new PageResult<>(total, voList, queryDto.getPage(), queryDto.getPageSize());
+    }
+
+    private static @NonNull ProxyProductSearchCondition buildSearchCondition(ProxyProductQueryDTO queryDto) {
+        ProxyProductSearchCondition condition = new ProxyProductSearchCondition();
+        condition.setCountryCode(queryDto.getCountryCode());
+        condition.setCityCode(queryDto.getCityCode());
+
+        // 处理分页逻辑：只有当前端传了分页参数时才计算
+        if (queryDto.getPage() != null && queryDto.getPageSize() != null) {
+            condition.setLimit(queryDto.getPageSize());
+            // 公式：offset = (当前页码 - 1) * 每页条数
+            int offset = (queryDto.getPage() - 1) * queryDto.getPageSize();
+            condition.setOffset(Math.max(offset, 0)); // 防止负数
+        }
+        return condition;
     }
 
     /**
