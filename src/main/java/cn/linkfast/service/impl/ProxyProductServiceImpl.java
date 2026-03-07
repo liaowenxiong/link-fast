@@ -60,7 +60,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     @Value("${api.ipv.appSecret}")
     private String appSecret;
 
-    @Value("${api.ipv.path.product_query}")
+    @Value("${api.ipv.path.product_query")
     private String productQueryPath;
 
     private String baseUrl; // 动态确定的基础地址
@@ -109,7 +109,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     }
 
     @Override
-    public PageResult<ProxyProductVO> getProxyProducts(ProxyProductQueryDTO queryDto)  {
+    public PageResult<ProxyProductVO> getProxyProducts(ProxyProductQueryDTO queryDto) throws Exception {
         // 1. DTO 转 SearchCondition (计算 offset)
         ProxyProductSearchCondition condition = buildSearchCondition(queryDto);
 
@@ -131,7 +131,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
         return new PageResult<>(total, voList, queryDto.getPage(), queryDto.getPageSize());
     }
 
-    private static @NonNull ProxyProductSearchCondition buildSearchCondition(@NonNull ProxyProductQueryDTO queryDto) {
+    private static @NonNull ProxyProductSearchCondition buildSearchCondition(ProxyProductQueryDTO queryDto) {
         ProxyProductSearchCondition condition = new ProxyProductSearchCondition();
         condition.setCountryCode(queryDto.getCountryCode());
         condition.setCityCode(queryDto.getCityCode());
