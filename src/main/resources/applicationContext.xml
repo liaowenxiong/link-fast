@@ -15,13 +15,13 @@
     <context:annotation-config/>
     
     <!--组件扫描 -->
-    <context:component-scan base-package="com.linkfast">
-        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>
-    </context:component-scan>
+<!--    <context:component-scan base-package="cn.linkfast">-->
+<!--        <context:exclude-filter type="annotation" expression="org.springframework.stereotype.Controller"/>-->
+<!--    </context:component-scan>-->
+    <context:component-scan base-package="cn.linkfast.service, cn.linkfast.dao" />
     
     <!-- 数据源配置 -->
-    <context:property-placeholder location="classpath:jdbc.properties" file-encoding="UTF-8" />
-    <context:property-placeholder location="classpath:api.properties" file-encoding="UTF-8" />
+    <context:property-placeholder location="classpath:jdbc.properties,classpath:api.properties" file-encoding="UTF-8" />
     
     <bean id="dataSource" class="com.alibaba.druid.pool.DruidDataSource" destroy-method="close">
         <property name="driverClassName" value="${jdbc.driver}"/>
