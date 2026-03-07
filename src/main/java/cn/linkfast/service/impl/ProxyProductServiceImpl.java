@@ -109,7 +109,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     }
 
     @Override
-    public PageResult<ProxyProductVO> getProxyProducts(ProxyProductQueryDTO queryDto) throws Exception {
+    public PageResult<ProxyProductVO> getProxyProducts(ProxyProductQueryDTO queryDto)  {
         // 1. DTO 转 SearchCondition (计算 offset)
         ProxyProductSearchCondition condition = buildSearchCondition(queryDto);
 
