@@ -57,8 +57,8 @@ public class ProxyProductServiceImpl implements ProxyProductService {
 
 
 
-    @Value("${api.ipv.appSecret}")
-    private String appSecret;
+//    @Value("${api.ipv.appSecret}")
+//    private String appSecret;
 
     @Value("${api.ipv.path.product_query}")
     private String productQueryPath;
