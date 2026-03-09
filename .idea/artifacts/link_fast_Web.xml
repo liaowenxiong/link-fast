@@ -1,0 +1,8 @@
+<component name="ArtifactManager">
+  <artifact type="war" build-on-make="true" name="link-fast:Web">
+    <output-path>$PROJECT_DIR$/out/artifacts/link_fast_Web</output-path>
+    <root id="archive" name="link-fast_Web.war">
+      <element id="artifact" artifact-name="link-fast:Web exploded" />
+    </root>
+  </artifact>
+</component>
