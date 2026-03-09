@@ -38,6 +38,6 @@
     </bean>
 
     <!--启用注解事务 -->
-    <tx:annotation-driven transaction-manager="transactionManager"/>
+    <tx:annotation-driven/>
 
 </beans>
