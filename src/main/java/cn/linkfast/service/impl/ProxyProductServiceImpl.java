@@ -55,8 +55,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     @Value("${api.ipv.prod_url}")
     private String prodUrl;
 
-    @Value("${api.ipv.appKey}")
-    private String appKey;
+
 
     @Value("${api.ipv.appSecret}")
     private String appSecret;
@@ -65,7 +64,6 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     private String productQueryPath;
 
     private String baseUrl; // 动态确定的基础地址
-    private String aesIv;
 
     private static @NonNull ProxyProductSearchCondition buildSearchCondition(@NonNull ProxyProductQueryDTO queryDto) {
         ProxyProductSearchCondition condition = new ProxyProductSearchCondition();
