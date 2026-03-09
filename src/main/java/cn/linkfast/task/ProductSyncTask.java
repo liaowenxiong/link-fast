@@ -47,7 +47,7 @@ public class ProductSyncTask {
         try {
             // 调用同步逻辑
             int result = proxyProductService.syncProxyProducts(params);
-            log.info("[定时任务] 数据同步执行成功，同步成功 {} 条数据", result);
+            log.info("============== [定时任务] 数据同步执行成功，同步成功 {} 条数据 ==============", result);
         } catch (Exception e) {
             log.error("!!! [定时任务] 数据同步过程中发生致命错误：{}", e.getMessage(), e);
         }

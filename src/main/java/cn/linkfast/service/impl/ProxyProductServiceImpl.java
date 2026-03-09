@@ -6,7 +6,7 @@ import cn.linkfast.dto.ProxyProductQueryDTO;
 import cn.linkfast.entity.ProxyProduct;
 import cn.linkfast.entity.ProxyProductSearchCondition;
 import cn.linkfast.service.ProxyProductService;
-import cn.linkfast.utils.AESCBC;
+import cn.linkfast.utils.ApiPacketUtil;
 import cn.linkfast.vo.ProxyProductVO;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -27,7 +27,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -66,6 +67,21 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     private String baseUrl; // 动态确定的基础地址
     private String aesIv;
 
+    private static @NonNull ProxyProductSearchCondition buildSearchCondition(@NonNull ProxyProductQueryDTO queryDto) {
+        ProxyProductSearchCondition condition = new ProxyProductSearchCondition();
+        condition.setCountryCode(queryDto.getCountryCode());
+        condition.setCityCode(queryDto.getCityCode());
+
+        // 处理分页逻辑：只有当前端传了分页参数时才计算
+        if (queryDto.getPage() != null && queryDto.getPageSize() != null) {
+            condition.setLimit(queryDto.getPageSize());
+            // 公式：offset = (当前页码 - 1) * 每页条数
+            int offset = (queryDto.getPage() - 1) * queryDto.getPageSize();
+            condition.setOffset(Math.max(offset, 0)); // 防止负数
+        }
+        return condition;
+    }
+
     /**
      * 初始化：根据环境开关选择 BaseUrl，并准备 AES 的 IV
      */
@@ -90,17 +106,8 @@ public class ProxyProductServiceImpl implements ProxyProductService {
         // 拼接完整的请求 URL
         String fullUrl = baseUrl + productQueryPath;
 
-        // 业务参数转 JSON -> 加密 -> 包装 (逻辑与之前一致)
-        String businessJson = objectMapper.writeValueAsString(params);
-        byte[] encryptedBytes = AESCBC.encryptCBC(businessJson.getBytes(StandardCharsets.UTF_8), appSecret.getBytes(StandardCharsets.UTF_8), aesIv.getBytes(StandardCharsets.UTF_8));
-        String base64Params = Base64.getEncoder().encodeToString(encryptedBytes);
-
-        Map<String, Object> finalRequest = new HashMap<>();
-        finalRequest.put("version", "v2.0");
-        finalRequest.put("encrypt", "aes");
-        finalRequest.put("appKey", appKey);
-        finalRequest.put("reqId", UUID.randomUUID().toString().replace("-", ""));
-        finalRequest.put("params", base64Params);
+        // 业务参数转成最终的请求参数
+        Map<String, Object> finalRequest = ApiPacketUtil.pack(params);
 
         // 发送 HTTP 请求
         String responseStr = sendPost(fullUrl, finalRequest);
@@ -109,7 +116,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     }
 
     @Override
-    public PageResult<ProxyProductVO> getProxyProducts(ProxyProductQueryDTO queryDto)  {
+    public PageResult<ProxyProductVO> getProxyProducts(ProxyProductQueryDTO queryDto) {
         // 1. DTO 转 SearchCondition (计算 offset)
         ProxyProductSearchCondition condition = buildSearchCondition(queryDto);
 
@@ -123,27 +130,10 @@ public class ProxyProductServiceImpl implements ProxyProductService {
         List<ProxyProduct> entityList = proxyProductDAO.findProxyProductList(condition);
 
         // 4. 将 Entity 转换为 VO (数据脱敏/格式转换)
-        List<ProxyProductVO> voList = entityList.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
+        List<ProxyProductVO> voList = entityList.stream().map(this::convertToVO).collect(Collectors.toList());
 
         // 5. 封装返回
         return new PageResult<>(total, voList, queryDto.getPage(), queryDto.getPageSize());
-    }
-
-    private static @NonNull ProxyProductSearchCondition buildSearchCondition(@NonNull ProxyProductQueryDTO queryDto) {
-        ProxyProductSearchCondition condition = new ProxyProductSearchCondition();
-        condition.setCountryCode(queryDto.getCountryCode());
-        condition.setCityCode(queryDto.getCityCode());
-
-        // 处理分页逻辑：只有当前端传了分页参数时才计算
-        if (queryDto.getPage() != null && queryDto.getPageSize() != null) {
-            condition.setLimit(queryDto.getPageSize());
-            // 公式：offset = (当前页码 - 1) * 每页条数
-            int offset = (queryDto.getPage() - 1) * queryDto.getPageSize();
-            condition.setOffset(Math.max(offset, 0)); // 防止负数
-        }
-        return condition;
     }
 
     /**
@@ -165,10 +155,10 @@ public class ProxyProductServiceImpl implements ProxyProductService {
             String encryptedData = root.path("data").asText();
             if (encryptedData == null || encryptedData.isEmpty()) return 0;
 
-            byte[] decodedBytes = Base64.getDecoder().decode(encryptedData);
-            byte[] decryptedBytes = AESCBC.decryptCBC(decodedBytes, appSecret.getBytes(StandardCharsets.UTF_8), aesIv.getBytes(StandardCharsets.UTF_8));
-            String decryptedJson = new String(decryptedBytes, StandardCharsets.UTF_8);
+            // 解密响应数据
+            String decryptedJson = ApiPacketUtil.unpack(encryptedData);
 
+            // 将解密后的 JSON 转换为 ProxyProduct 列表
             List<ProxyProduct> productList = objectMapper.readValue(decryptedJson, new TypeReference<>() {
             });
             return proxyProductDAO.batchSaveOrUpdate(productList);

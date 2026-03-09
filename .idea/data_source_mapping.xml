@@ -1,7 +1,0 @@
-<?xml version="1.0" encoding="UTF-8"?>
-<project version="4">
-  <component name="DataSourcePerFileMappings">
-    <file url="file://$PROJECT_DIR$/src/main/java/cn/linkfast/dao/impl/ProxyProductDaoImpl.java" value="4585a4fe-2e0c-41d6-9375-1a2db71b6bc7" />
-    <file url="file://$PROJECT_DIR$/src/main/java/cn/linkfast/service/impl/ProxyProductServiceImpl.java" value="4585a4fe-2e0c-41d6-9375-1a2db71b6bc7" />
-  </component>
-</project>
