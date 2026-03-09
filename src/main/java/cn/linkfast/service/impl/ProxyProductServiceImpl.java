@@ -64,6 +64,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     private String productQueryPath;
 
     private String baseUrl; // 动态确定的基础地址
+//    private String aesIv;
 
     private static @NonNull ProxyProductSearchCondition buildSearchCondition(@NonNull ProxyProductQueryDTO queryDto) {
         ProxyProductSearchCondition condition = new ProxyProductSearchCondition();
@@ -93,9 +94,9 @@ public class ProxyProductServiceImpl implements ProxyProductService {
         }
 
         // 2. 准备 AES IV (Key的前16位)
-        if (appSecret != null && appSecret.length() >= 16) {
-            this.aesIv = appSecret.substring(0, 16);
-        }
+//        if (appSecret != null && appSecret.length() >= 16) {
+//            this.aesIv = appSecret.substring(0, 16);
+//        }
     }
 
     @Override
