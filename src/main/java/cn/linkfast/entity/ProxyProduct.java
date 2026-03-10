@@ -1,15 +1,16 @@
 package cn.linkfast.entity;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
-import com.fasterxml.jackson.annotation.JsonProperty;
-import lombok.Getter;
-import lombok.Setter;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
-@Setter
-@Getter
+@Data
 @JsonIgnoreProperties(ignoreUnknown = true)
 public class ProxyProduct {
 
@@ -26,7 +27,6 @@ public class ProxyProduct {
     private String cityCode = "000";
     private String detail;
 
-    @JsonProperty("price")
     private BigDecimal costPrice;
     private BigDecimal retailPrice;
 
@@ -50,8 +50,6 @@ public class ProxyProduct {
     private String parentNo;
     private Integer cidrStatus = -1;
     private Integer oneDay;
-    private String cidrBlocks;
-    private String offlineCidrBlocks;
     private Integer proxyEverytimeChange = -1;
     private Integer proxyGlobalRandom = -1;
     private Integer apiDrawGlobalRandom = -1;
@@ -61,11 +59,40 @@ public class ProxyProduct {
     private Integer flowUseLog = -1;
     private String pwdDrawSessionRange;
     private Integer flowConversionBase = 0;
-    private String projectList;
     private Integer productType = 1;
     private Date createTime;
     private Date updateTime;
 
-    // --- 以下为完整 Getter 和 Setter，严禁省略 ---
+    // 默认初始化为空集合，配合 DAO 层逻辑
+    private List<BlockItem> cidrBlocks = new ArrayList<>();
+    private List<OfflineBlockItem> offlineCidrBlocks = new ArrayList<>();
+    private List<ProjectItem> projectList = new ArrayList<>();
 
+    // 内嵌类，代表 projectList 数组的每个元素
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class ProjectItem {
+        private String code;
+        private Integer inventory;
+    }
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class BlockItem {
+        private String cidr;
+        private Integer count;
+        private String asn;
+        private String isp;
+        // 这里的 projectList 也必须是 List<ProjectItem>，不能是 List<String>
+        private List<ProjectItem> projectList = new ArrayList<>();
+    }
+
+    @Data
+    @NoArgsConstructor
+    @AllArgsConstructor
+    public static class OfflineBlockItem {
+        private String cidr;
+        private String offlineTime;
+    }
 }

@@ -8,7 +8,6 @@ import cn.linkfast.entity.ProxyProductSearchCondition;
 import cn.linkfast.service.ProxyProductService;
 import cn.linkfast.utils.ApiPacketUtil;
 import cn.linkfast.vo.ProxyProductVO;
-import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
@@ -35,16 +34,16 @@ import java.util.stream.Collectors;
 @Slf4j
 @Service
 public class ProxyProductServiceImpl implements ProxyProductService {
-    private static final ObjectMapper objectMapper = new ObjectMapper();
-
-    static {
+    /*static {
         // 关键防御代码：在代码层强制限制 JSON 嵌套深度
         // 这样即便黑客利用漏洞发送恶意 JSON，Jackson 也会在 1000 层时直接报错，不会导致服务器崩溃
         StreamReadConstraints constraints = StreamReadConstraints.builder().maxNestingDepth(1000).build();
         objectMapper.getFactory().setStreamReadConstraints(constraints);
-    }
+    }*/
 
+    private final ObjectMapper objectMapper;
     private final ProxyProductDAO proxyProductDAO;
+    private final ApiPacketUtil apiPacketUtil;
     // --- 注入配置 ---
     @Value("${api.ipv.env}")
     private String env;
@@ -55,16 +54,10 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     @Value("${api.ipv.prod_url}")
     private String prodUrl;
 
-
-
-//    @Value("${api.ipv.appSecret}")
-//    private String appSecret;
-
     @Value("${api.ipv.path.product_query}")
     private String productQueryPath;
 
     private String baseUrl; // 动态确定的基础地址
-//    private String aesIv;
 
     private static @NonNull ProxyProductSearchCondition buildSearchCondition(@NonNull ProxyProductQueryDTO queryDto) {
         ProxyProductSearchCondition condition = new ProxyProductSearchCondition();
@@ -106,7 +99,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
         String fullUrl = baseUrl + productQueryPath;
 
         // 业务参数转成最终的请求参数
-        Map<String, Object> finalRequest = ApiPacketUtil.pack(params);
+        Map<String, Object> finalRequest = apiPacketUtil.pack(params);
 
         // 发送 HTTP 请求
         String responseStr = sendPost(fullUrl, finalRequest);
@@ -155,8 +148,8 @@ public class ProxyProductServiceImpl implements ProxyProductService {
             if (encryptedData == null || encryptedData.isEmpty()) return 0;
 
             // 解密响应数据
-            String decryptedJson = ApiPacketUtil.unpack(encryptedData);
-
+            String decryptedJson = apiPacketUtil.unpack(encryptedData);
+            log.info("接口返回数据解密成功: {}", decryptedJson);
             // 将解密后的 JSON 转换为 ProxyProduct 列表
             List<ProxyProduct> productList = objectMapper.readValue(decryptedJson, new TypeReference<>() {
             });
@@ -194,4 +187,5 @@ public class ProxyProductServiceImpl implements ProxyProductService {
             });
         }
     }
+
 }

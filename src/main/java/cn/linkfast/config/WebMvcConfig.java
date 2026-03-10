@@ -1,6 +1,7 @@
 package cn.linkfast.config;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.converter.HttpMessageConverter;
@@ -9,7 +10,6 @@ import org.springframework.web.servlet.config.annotation.DefaultServletHandlerCo
 import org.springframework.web.servlet.config.annotation.EnableWebMvc;
 import org.springframework.web.servlet.config.annotation.WebMvcConfigurer;
 
-import java.text.SimpleDateFormat;
 import java.util.List;
 
 /**
@@ -20,6 +20,10 @@ import java.util.List;
 @ComponentScan(basePackages = "cn.linkfast.controller") // 对应 <context:component-scan />
 public class WebMvcConfig implements WebMvcConfigurer {
 
+    // 自动注入在 AppConfig 中定义好的 ObjectMapper
+    @Autowired
+    private ObjectMapper objectMapper;
+
     /**
      * 1. 配置消息转换器 (对应 <mvc:message-converters>)
      * 用于设置 Jackson 的日期格式化
@@ -27,12 +31,9 @@ public class WebMvcConfig implements WebMvcConfigurer {
     @Override
     public void configureMessageConverters(List<HttpMessageConverter<?>> converters) {
         MappingJackson2HttpMessageConverter converter = new MappingJackson2HttpMessageConverter();
-        ObjectMapper objectMapper = new ObjectMapper();
-
-        // 设置日期格式化方案，对应 XML 中的 SimpleDateFormat 配置
-        objectMapper.setDateFormat(new SimpleDateFormat("yyyy-MM-dd HH:mm:ss"));
-
+        // 这里直接调用上面的方法，Spring 会保证它是单例的
         converter.setObjectMapper(objectMapper);
+
         converters.add(converter);
     }
 
