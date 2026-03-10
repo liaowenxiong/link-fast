@@ -6,7 +6,7 @@ import cn.linkfast.dto.ProxyProductQueryDTO;
 import cn.linkfast.entity.ProxyProduct;
 import cn.linkfast.entity.ProxyProductSearchCondition;
 import cn.linkfast.service.ProxyProductService;
-import cn.linkfast.utils.AESCBC;
+import cn.linkfast.utils.ApiPacketUtil;
 import cn.linkfast.vo.ProxyProductVO;
 import com.fasterxml.jackson.core.StreamReadConstraints;
 import com.fasterxml.jackson.core.type.TypeReference;
@@ -27,7 +27,8 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.nio.charset.StandardCharsets;
-import java.util.*;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @RequiredArgsConstructor
@@ -54,82 +55,16 @@ public class ProxyProductServiceImpl implements ProxyProductService {
     @Value("${api.ipv.prod_url}")
     private String prodUrl;
 
-    @Value("${api.ipv.appKey}")
-    private String appKey;
 
-    @Value("${api.ipv.appSecret}")
-    private String appSecret;
+
+//    @Value("${api.ipv.appSecret}")
+//    private String appSecret;
 
     @Value("${api.ipv.path.product_query}")
     private String productQueryPath;
 
     private String baseUrl; // 动态确定的基础地址
-    private String aesIv;
-
-    /**
-     * 初始化：根据环境开关选择 BaseUrl，并准备 AES 的 IV
-     */
-    @PostConstruct
-    public void init() {
-        // 1. 确定环境地址
-        if ("prod".equalsIgnoreCase(env)) {
-            this.baseUrl = prodUrl;
-        } else {
-            this.baseUrl = sandboxUrl;
-        }
-
-        // 2. 准备 AES IV (Key的前16位)
-        if (appSecret != null && appSecret.length() >= 16) {
-            this.aesIv = appSecret.substring(0, 16);
-        }
-    }
-
-    @Override
-    public int syncProxyProducts(Map<String, Object> params) throws Exception {
-
-        // 拼接完整的请求 URL
-        String fullUrl = baseUrl + productQueryPath;
-
-        // 业务参数转 JSON -> 加密 -> 包装 (逻辑与之前一致)
-        String businessJson = objectMapper.writeValueAsString(params);
-        byte[] encryptedBytes = AESCBC.encryptCBC(businessJson.getBytes(StandardCharsets.UTF_8), appSecret.getBytes(StandardCharsets.UTF_8), aesIv.getBytes(StandardCharsets.UTF_8));
-        String base64Params = Base64.getEncoder().encodeToString(encryptedBytes);
-
-        Map<String, Object> finalRequest = new HashMap<>();
-        finalRequest.put("version", "v2.0");
-        finalRequest.put("encrypt", "aes");
-        finalRequest.put("appKey", appKey);
-        finalRequest.put("reqId", UUID.randomUUID().toString().replace("-", ""));
-        finalRequest.put("params", base64Params);
-
-        // 发送 HTTP 请求
-        String responseStr = sendPost(fullUrl, finalRequest);
-
-        return processResponse(responseStr);
-    }
-
-    @Override
-    public PageResult<ProxyProductVO> getProxyProducts(ProxyProductQueryDTO queryDto)  {
-        // 1. DTO 转 SearchCondition (计算 offset)
-        ProxyProductSearchCondition condition = buildSearchCondition(queryDto);
-
-        // 2. 查询总条数 (用于分页组件显示总页数)
-        int total = proxyProductDAO.countProxyProduct(condition);
-        if (total == 0) {
-            return new PageResult<>(0, List.of(), queryDto.getPage(), queryDto.getPageSize());
-        }
-
-        // 3. 执行数据查询 (Entity 列表)
-        List<ProxyProduct> entityList = proxyProductDAO.findProxyProductList(condition);
-
-        // 4. 将 Entity 转换为 VO (数据脱敏/格式转换)
-        List<ProxyProductVO> voList = entityList.stream()
-                .map(this::convertToVO)
-                .collect(Collectors.toList());
-
-        // 5. 封装返回
-        return new PageResult<>(total, voList, queryDto.getPage(), queryDto.getPageSize());
-    }
+//    private String aesIv;
 
     private static @NonNull ProxyProductSearchCondition buildSearchCondition(@NonNull ProxyProductQueryDTO queryDto) {
         ProxyProductSearchCondition condition = new ProxyProductSearchCondition();
@@ -144,6 +79,60 @@ public class ProxyProductServiceImpl implements ProxyProductService {
             condition.setOffset(Math.max(offset, 0)); // 防止负数
         }
         return condition;
+    }
+
+    /**
+     * 初始化：根据环境开关选择 BaseUrl，并准备 AES 的 IV
+     */
+    @PostConstruct
+    public void init() {
+        // 1. 确定环境地址
+        if ("prod".equalsIgnoreCase(env)) {
+            this.baseUrl = prodUrl;
+        } else {
+            this.baseUrl = sandboxUrl;
+        }
+
+        // 2. 准备 AES IV (Key的前16位)
+//        if (appSecret != null && appSecret.length() >= 16) {
+//            this.aesIv = appSecret.substring(0, 16);
+//        }
+    }
+
+    @Override
+    public int syncProxyProducts(Map<String, Object> params) throws Exception {
+
+        // 拼接完整的请求 URL
+        String fullUrl = baseUrl + productQueryPath;
+
+        // 业务参数转成最终的请求参数
+        Map<String, Object> finalRequest = ApiPacketUtil.pack(params);
+
+        // 发送 HTTP 请求
+        String responseStr = sendPost(fullUrl, finalRequest);
+
+        return processResponse(responseStr);
+    }
+
+    @Override
+    public PageResult<ProxyProductVO> getProxyProducts(ProxyProductQueryDTO queryDto) {
+        // 1. DTO 转 SearchCondition (计算 offset)
+        ProxyProductSearchCondition condition = buildSearchCondition(queryDto);
+
+        // 2. 查询总条数 (用于分页组件显示总页数)
+        int total = proxyProductDAO.countProxyProduct(condition);
+        if (total == 0) {
+            return new PageResult<>(0, List.of(), queryDto.getPage(), queryDto.getPageSize());
+        }
+
+        // 3. 执行数据查询 (Entity 列表)
+        List<ProxyProduct> entityList = proxyProductDAO.findProxyProductList(condition);
+
+        // 4. 将 Entity 转换为 VO (数据脱敏/格式转换)
+        List<ProxyProductVO> voList = entityList.stream().map(this::convertToVO).collect(Collectors.toList());
+
+        // 5. 封装返回
+        return new PageResult<>(total, voList, queryDto.getPage(), queryDto.getPageSize());
     }
 
     /**
@@ -165,10 +154,10 @@ public class ProxyProductServiceImpl implements ProxyProductService {
             String encryptedData = root.path("data").asText();
             if (encryptedData == null || encryptedData.isEmpty()) return 0;
 
-            byte[] decodedBytes = Base64.getDecoder().decode(encryptedData);
-            byte[] decryptedBytes = AESCBC.decryptCBC(decodedBytes, appSecret.getBytes(StandardCharsets.UTF_8), aesIv.getBytes(StandardCharsets.UTF_8));
-            String decryptedJson = new String(decryptedBytes, StandardCharsets.UTF_8);
+            // 解密响应数据
+            String decryptedJson = ApiPacketUtil.unpack(encryptedData);
 
+            // 将解密后的 JSON 转换为 ProxyProduct 列表
             List<ProxyProduct> productList = objectMapper.readValue(decryptedJson, new TypeReference<>() {
             });
             return proxyProductDAO.batchSaveOrUpdate(productList);

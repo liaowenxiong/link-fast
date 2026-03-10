@@ -14,7 +14,7 @@ public class ApiPacketUtil {
     private static final String AES_IV = AES_KEY.substring(0, 16); //
     private static final ObjectMapper mapper = new ObjectMapper();
 
-    // 包装并加密请求
+    // 将业务参数转成最终的请求参数
     public static Map<String, Object> pack(Object businessParams) throws Exception {
         String json = mapper.writeValueAsString(businessParams);
         byte[] encrypted = AESCBC.encryptCBC(json.getBytes(), AES_KEY.getBytes(), AES_IV.getBytes());
