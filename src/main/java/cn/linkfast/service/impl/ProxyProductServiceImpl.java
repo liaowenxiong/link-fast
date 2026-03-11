@@ -85,11 +85,6 @@ public class ProxyProductServiceImpl implements ProxyProductService {
         } else {
             this.baseUrl = sandboxUrl;
         }
-
-        // 2. 准备 AES IV (Key的前16位)
-//        if (appSecret != null && appSecret.length() >= 16) {
-//            this.aesIv = appSecret.substring(0, 16);
-//        }
     }
 
     @Override
