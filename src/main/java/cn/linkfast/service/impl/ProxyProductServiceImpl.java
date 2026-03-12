@@ -4,7 +4,7 @@ import cn.linkfast.common.PageResult;
 import cn.linkfast.dao.ProxyProductDAO;
 import cn.linkfast.dto.ProxyProductQueryDTO;
 import cn.linkfast.entity.ProxyProduct;
-import cn.linkfast.entity.ProxyProductSearchCondition;
+import cn.linkfast.dto.ProxyProductSearchCondition;
 import cn.linkfast.service.ProxyProductService;
 import cn.linkfast.utils.ApiPacketUtil;
 import cn.linkfast.vo.ProxyProductVO;
@@ -65,10 +65,10 @@ public class ProxyProductServiceImpl implements ProxyProductService {
         condition.setCityCode(queryDto.getCityCode());
 
         // 处理分页逻辑：只有当前端传了分页参数时才计算
-        if (queryDto.getPage() != null && queryDto.getPageSize() != null) {
+        if (queryDto.getPageNum() != null && queryDto.getPageSize() != null) {
             condition.setLimit(queryDto.getPageSize());
             // 公式：offset = (当前页码 - 1) * 每页条数
-            int offset = (queryDto.getPage() - 1) * queryDto.getPageSize();
+            int offset = (queryDto.getPageNum() - 1) * queryDto.getPageSize();
             condition.setOffset(Math.max(offset, 0)); // 防止负数
         }
         return condition;
@@ -110,7 +110,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
         // 2. 查询总条数 (用于分页组件显示总页数)
         int total = proxyProductDAO.countProxyProduct(condition);
         if (total == 0) {
-            return new PageResult<>(0, List.of(), queryDto.getPage(), queryDto.getPageSize());
+            return new PageResult<>(0, List.of(), queryDto.getPageNum(), queryDto.getPageSize());
         }
 
         // 3. 执行数据查询 (Entity 列表)
@@ -120,7 +120,7 @@ public class ProxyProductServiceImpl implements ProxyProductService {
         List<ProxyProductVO> voList = entityList.stream().map(this::convertToVO).collect(Collectors.toList());
 
         // 5. 封装返回
-        return new PageResult<>(total, voList, queryDto.getPage(), queryDto.getPageSize());
+        return new PageResult<>(total, voList, queryDto.getPageNum(), queryDto.getPageSize());
     }
 
     /**

@@ -2,7 +2,7 @@ package cn.linkfast.dao.impl;
 
 import cn.linkfast.dao.ProxyProductDAO;
 import cn.linkfast.entity.ProxyProduct;
-import cn.linkfast.entity.ProxyProductSearchCondition;
+import cn.linkfast.dto.ProxyProductSearchCondition;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;

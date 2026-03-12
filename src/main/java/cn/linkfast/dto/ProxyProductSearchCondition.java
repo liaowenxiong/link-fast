@@ -1,4 +1,4 @@
-package cn.linkfast.entity;
+package cn.linkfast.dto;
 
 import lombok.Data;
 

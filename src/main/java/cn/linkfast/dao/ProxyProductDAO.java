@@ -1,7 +1,7 @@
 package cn.linkfast.dao;
 
 import cn.linkfast.entity.ProxyProduct;
-import cn.linkfast.entity.ProxyProductSearchCondition;
+import cn.linkfast.dto.ProxyProductSearchCondition;
 
 import java.util.List;
 

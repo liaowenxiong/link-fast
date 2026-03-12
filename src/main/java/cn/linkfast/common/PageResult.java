@@ -17,6 +17,7 @@ public class PageResult<T> implements Serializable {
     private static final long serialVersionUID = 1L;
 
     private Integer total;      // 总记录数
+    private Integer totalPages; // 总页数
     private List<T> list;       // 当前页的数据列表
     private Integer pageNum;    // 当前页码
     private Integer pageSize;   // 每页显示条数
@@ -29,5 +30,6 @@ public class PageResult<T> implements Serializable {
         this.list = list;
         this.pageNum = pageNum;
         this.pageSize = pageSize;
+        this.totalPages = pageSize == 0 ? 0 : (total % pageSize == 0 ? total / pageSize : total / pageSize + 1);
     }
 }

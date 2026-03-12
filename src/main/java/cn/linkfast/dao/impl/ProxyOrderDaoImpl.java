@@ -2,12 +2,14 @@ package cn.linkfast.dao.impl;
 
 import cn.linkfast.dao.ProxyOrderDAO;
 import cn.linkfast.dto.OrderUpdateResultDTO;
+import cn.linkfast.dto.ProxyOrderSearchCondition;
 import cn.linkfast.entity.ProxyOrder;
 import cn.linkfast.entity.ProxyOrderInstance;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.jdbc.core.BeanPropertyRowMapper;
 import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.stereotype.Repository;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,6 +71,79 @@ public class ProxyOrderDaoImpl implements ProxyOrderDAO {
         }
         log.info(">>> 订单及 {} 个实例已成功持久化，单号: {}", instances.size(), order.getOrderNo());
         return new OrderUpdateResultDTO(proxyOrderUpdatedRows, proxyInstanceUpdatedRows);
+    }
+
+
+    /**
+     * 根据条件查询代理订单列表
+     *
+     * @param condition 查询条件
+     * @return 订单列表
+     */
+    @Override
+    public List<ProxyOrder> findProxyOrderList(ProxyOrderSearchCondition condition) {
+        // 1. 动态拼接SQL
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT * FROM proxy_order WHERE 1=1 ");
+
+        // 存储动态参数（避免SQL注入）
+        List<Object> params = new ArrayList<>();
+
+        // 2. 拼接查询条件
+        // 必传条件：status
+        sql.append("AND status = ? ");
+        params.add(condition.getStatus());
+
+        // 非必传条件：orderType
+        if (condition.getOrderType() != null && !condition.getOrderType().isEmpty()) {
+            sql.append("AND order_type = ? ");
+            params.add(condition.getOrderType());
+        }
+
+        // 非必传条件：orderNo
+        if (condition.getOrderNo() != null && !condition.getOrderNo().isEmpty()) {
+            sql.append("AND order_no = ? ");
+            params.add(condition.getOrderNo());
+        }
+
+        // 3. 拼接分页（MySQL LIMIT）
+        sql.append("ORDER BY create_time DESC LIMIT ?, ?");
+        params.add(condition.getOffset());
+        params.add(condition.getLimit());
+
+        // 4. 执行查询并映射为实体（BeanPropertyRowMapper自动映射驼峰字段）
+        return jdbcTemplate.query(sql.toString(), new BeanPropertyRowMapper<>(ProxyOrder.class), params.toArray());
+    }
+
+    /**
+     * 查询订单总数（仅统计符合条件的条数）
+     */
+    @Override
+    public int countProxyOrder(ProxyOrderSearchCondition condition) {
+        // 1. 动态拼接统计SQL
+        StringBuilder sql = new StringBuilder();
+        sql.append("SELECT COUNT(1) FROM proxy_order WHERE 1=1 ");
+
+        // 存储动态参数
+        List<Object> params = new ArrayList<>();
+
+        // 2. 拼接查询条件（与列表查询保持一致）
+        sql.append("AND status = ? ");
+        params.add(condition.getStatus());
+
+        if (condition.getOrderType() != null && !condition.getOrderType().isEmpty()) {
+            sql.append("AND order_type = ? ");
+            params.add(condition.getOrderType());
+        }
+
+        if (condition.getOrderNo() != null && !condition.getOrderNo().isEmpty()) {
+            sql.append("AND order_no = ? ");
+            params.add(condition.getOrderNo());
+        }
+
+        // 3. 执行统计查询
+        Integer count = jdbcTemplate.queryForObject(sql.toString(), Integer.class, params.toArray());
+        return count != null ? count : 0;
     }
 
 

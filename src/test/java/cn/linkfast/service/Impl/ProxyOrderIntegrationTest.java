@@ -14,7 +14,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.test.context.ContextConfiguration;
 import org.springframework.test.context.junit.jupiter.SpringExtension;
 import org.springframework.test.util.ReflectionTestUtils;
-import org.springframework.transaction.annotation.Transactional;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -33,15 +32,12 @@ import static org.mockito.Mockito.*;
 //@Transactional // 保证测试入库后自动回滚，不产生垃圾数据
 public class ProxyOrderIntegrationTest {
 
-    @Autowired
-    private ProxyOrderDAO proxyOrderDAO; // 自动注入 applicationContext.xml 中定义的真实 DAO
-
-    @Autowired
-    private ObjectMapper objectMapper; // 自动注入 AppConfig 中定义的 ObjectMapper
-
     // 手动 Mock 解密工具，跳过复杂的加密算法
     private final ApiPacketUtil apiPacketUtil = mock(ApiPacketUtil.class);
-
+    @Autowired
+    private ProxyOrderDAO proxyOrderDAO; // 自动注入 applicationContext.xml 中定义的真实 DAO
+    @Autowired
+    private ObjectMapper objectMapper; // 自动注入 AppConfig 中定义的 ObjectMapper
     private ProxyOrderServiceImpl proxyOrderServiceSpy;
 
     @BeforeEach
@@ -66,7 +62,72 @@ public class ProxyOrderIntegrationTest {
         String mockRawApiResponse = "{\"code\":200, \"msg\":\"ok\", \"data\":\"ENCRYPTED_DATA_STUB\"}";
 
         // 模拟解密后的明文 JSON（你提供的模拟数据）
-        String mockDecryptedJson = "{\"orderNo\":\"P202603111200001\",\"appOrderNo\":\"APP_ORD_998877\",\"type\":1,\"status\":3,\"count\":10,\"amount\":\"100.50\",\"refund\":0,\"page\":1,\"pageSize\":10,\"total\":1,\"instances\":[{\"instanceNo\":\"INS_66778899\",\"proxyType\":101,\"protocol\":\"socks5\",\"ip\":\"154.22.33.44\",\"port\":8080,\"regionId\":\"US-West\",\"countryCode\":\"US\",\"cityCode\":\"LAX\",\"useType\":\"static\",\"username\":\"tester_proxy\",\"pwd\":\"password123\",\"userExpired\":1741670400,\"flowTotal\":\"1024.00\",\"flowBalance\":\"512.00\",\"status\":1,\"renew\":null,\"bridges\":[\"1.1.1.1\",\"2.2.2.2\"],\"openAt\":null,\"renewAt\":null,\"releaseAt\":null,\"productNo\":\"PN_STATIC_001\",\"extendIp\":\"\",\"projectId\":\"PROJ_001\"}]}";
+// Java 15+ 支持：三引号包裹文本块，内部双引号无需转义
+        String mockDecryptedJson = """
+                {
+                  "orderNo": "P2026031200010005",
+                  "appOrderNo": "D2026031200886699",
+                  "type": 1,
+                  "status": 3,
+                  "count": 2,
+                  "amount": "99.80",
+                  "refund": 0,
+                  "page": 1,
+                  "pageSize": 10,
+                  "total": 2,
+                  "instances": [
+                    {
+                      "instanceNo": "INST20260312001001",
+                      "proxyType": 101,
+                      "protocol": "1,2,3",
+                      "ip": "192.168.1.101",
+                      "port": 1080,
+                      "regionId": "CN-SH",
+                      "countryCode": "CN",
+                      "cityCode": "SH",
+                      "useType": "1,2",
+                      "username": "proxy_user_01",
+                      "pwd": "Pro@xy123456",
+                      "orderNo": "P2026031200010005",
+                      "userExpired": 1715500800,
+                      "flowTotal": 10240.00,
+                      "flowBalance": 9876.50,
+                      "status": 3,
+                      "renew": 0,
+                      "bridges": ["10.0.0.1:8080", "10.0.0.2:8080"],
+                      "openAt": "2026-03-12 09:30:00",
+                      "renewAt": "2026-03-12 09:30:00",
+                        "releaseAt":"2026-03-12 09:35:00",
+                      "productNo": "PRO-STATIC-101",
+                      "extendIp": "192.168.1.102,192.168.1.103"
+                    },
+                    {
+                      "instanceNo": "INST20260312001002",
+                      "proxyType": 104,
+                      "protocol": "1,4",
+                      "ip": "103.20.11.22",
+                      "port": 2222,
+                      "regionId": "US-NY",
+                      "countryCode": "US",
+                      "cityCode": "NY",
+                      "useType": "3",
+                      "username": "f9876a54-b321-0987-dcba-1234567890ab",
+                      "pwd": "UUID@Dynamic2026",
+                      "orderNo": "P2026031200010005",
+                      "userExpired": 1715500800,
+                      "flowTotal": 5120.00,
+                      "flowBalance": 5120.00,
+                      "status": 3,
+                      "renew": 0,
+                      "bridges": [],
+                      "openAt": "2026-03-12 09:35:00",
+                      "renewAt": "2026-03-12 09:35:00",
+                      "releaseAt":"2026-03-12 09:35:00",
+                      "productNo": "PRO-DYNAMIC-104",
+                      "extendIp": null
+                    }
+                  ]
+                }""";
 
         // --- 2. 行为打桩 ---
 

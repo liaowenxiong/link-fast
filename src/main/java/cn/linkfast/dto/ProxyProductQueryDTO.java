@@ -18,7 +18,7 @@ public class ProxyProductQueryDTO implements Serializable {
     private String countryCode;
     private String cityCode;
 
-    private Integer page;
+    private Integer pageNum;
     private Integer pageSize;
 
 }
