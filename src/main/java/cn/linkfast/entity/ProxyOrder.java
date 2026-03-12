@@ -1,5 +1,6 @@
 package cn.linkfast.entity;
 
+import com.fasterxml.jackson.annotation.JsonProperty;
 import lombok.Data;
 
 import java.math.BigDecimal;
@@ -16,12 +17,16 @@ import java.util.List;
 public class ProxyOrder {
     private String orderNo;       // 平台订单编号
     private String appOrderNo;    // 渠道商订单号
-    private Long userId;          // 买家ID
+    private Long userId;
+    @JsonProperty("type")
     private Integer orderType;    // 订单类型: 1=新建, 2=续费, 3=释放
     private Integer status;       // 状态: 1=待处理, 2=处理中, 3=处理成功, 4=处理失败, 5=部分完成
+    @JsonProperty("count")
     private Integer productCount; // 购买数量
     private BigDecimal amount;    // 总价
+    @JsonProperty("refund")
     private Integer hasRefund;    // 是否存在退费: 0=无, 1=存在
+    @JsonProperty("total")
     private Long instanceTotal;   // 订单对应实例总数量
     private Date createTime;
     private Date updateTime;
