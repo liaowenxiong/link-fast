@@ -1,0 +1,20 @@
+CREATE TABLE `region` (
+  `id` bigint unsigned NOT NULL AUTO_INCREMENT COMMENT '主键ID',
+  `parent_id` bigint unsigned NOT NULL DEFAULT '0' COMMENT '父节点ID，顶级节点（大洲）parent_id=0',
+  `level` tinyint NOT NULL COMMENT '层级：1=大洲，2=国家，3=州/省，4=城市',
+  `region_code` varchar(32) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '节点唯一编码（洲代码/国家代码/州省代码/城市代码）',
+  `region_name` varchar(128) COLLATE utf8mb4_unicode_ci NOT NULL COMMENT '节点中文名称',
+  `region_en_name` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '节点英文名称',
+  `sort` int NOT NULL DEFAULT '0' COMMENT '排序值：数字越小越靠前，用于前端展示排序',
+  `full_code` varchar(128) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '全路径编码（如SA-US-FL-MIA，层级编码用-分隔）',
+  `full_name` varchar(256) COLLATE utf8mb4_unicode_ci DEFAULT '' COMMENT '全路径中文名称（如南美洲-美国-佛罗里达-迈阿密）',
+  `status` tinyint NOT NULL DEFAULT '1' COMMENT '状态：1=正常，0=禁用',
+  `create_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP COMMENT '创建时间',
+  `update_time` datetime NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP COMMENT '更新时间',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `uk_region_code` (`region_code`) COMMENT '编码唯一索引，避免重复节点',
+  KEY `idx_parent_id` (`parent_id`) COMMENT '父节点索引，单独查询父节点下所有子节点',
+  KEY `idx_level` (`level`) COMMENT '层级索引，单独查询某一层级所有节点',
+  KEY `idx_level_parent_id` (`level`,`parent_id`) COMMENT '层级+父节点联合索引，优化级联查询（核心）',
+  KEY `idx_full_code` (`full_code`) COMMENT '全路径编码索引，快速查询某全路径下的所有节点'
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='地域信息表（大洲-国家-州省-城市四级）';
