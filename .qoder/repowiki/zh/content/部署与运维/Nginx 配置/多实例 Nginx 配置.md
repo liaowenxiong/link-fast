@@ -1,310 +1,501 @@
 # 多实例 Nginx 配置
 
 <cite>
-**本文引用的文件**
+**本文档引用的文件**
 - [link-fast-multi-instance.conf](file://docs/nginx/link-fast-multi-instance.conf)
 - [link-fast.conf](file://docs/nginx/link-fast.conf)
 - [linkfast-admin.conf](file://docs/nginx/linkfast-admin.conf)
-- [ProxyCallbackController.java](file://src/main/java/cn/linkfast/controller/ProxyCallbackController.java)
-- [Result.java](file://src/main/java/cn/linkfast/common/Result.java)
+- [ProxyInstanceController.java](file://src/main/java/cn/linkfast/controller/ProxyInstanceController.java)
+- [ProxyInstanceServiceImpl.java](file://src/main/java/cn/linkfast/service/impl/ProxyInstanceServiceImpl.java)
+- [ProxyInstance.java](file://src/main/java/cn/linkfast/entity/ProxyInstance.java)
+- [ProxyInstanceQueryDTO.java](file://src/main/java/cn/linkfast/dto/ProxyInstanceQueryDTO.java)
+- [ProxyInstanceDAO.java](file://src/main/java/cn/linkfast/dao/ProxyInstanceDAO.java)
+- [AppConfig.java](file://src/main/java/cn/linkfast/config/AppConfig.java)
+- [WebMvcConfig.java](file://src/main/java/cn/linkfast/config/WebMvcConfig.java)
+- [web.xml](file://src/main/webapp/WEB-INF/web.xml)
 - [applicationContext.xml](file://src/main/resources/applicationContext.xml)
 - [jdbc.properties](file://src/main/resources/jdbc.properties)
+- [api.properties](file://src/main/resources/api.properties)
 - [my.cnf](file://docs/database/my.cnf)
-- [logback.xml](file://src/main/resources/logback.xml)
-- [web.xml](file://src/main/webapp/WEB-INF/web.xml)
+- [pom.xml](file://pom.xml)
 </cite>
 
 ## 目录
 1. [简介](#简介)
 2. [项目结构](#项目结构)
 3. [核心组件](#核心组件)
-4. [架构总览](#架构总览)
+4. [架构概览](#架构概览)
 5. [详细组件分析](#详细组件分析)
 6. [依赖关系分析](#依赖关系分析)
-7. [性能考量](#性能考量)
-8. [故障排查指南](#故障排查指南)
+7. [性能考虑](#性能考虑)
+8. [故障排除指南](#故障排除指南)
 9. [结论](#结论)
-10. [附录](#附录)
 
 ## 简介
-本文件面向 Link-Fast 项目的多实例部署场景，系统化梳理 Nginx 在多实例架构中的配置要点与最佳实践。重点覆盖：
-- 多实例负载均衡策略：轮询、权重、健康检查与故障转移
-- upstream 块与后端服务器列表管理
-- 会话保持与数据同步策略
-- 故障转移与自动恢复配置
-- 实例数量规划、资源分配与性能监控建议
-- 实际配置示例与部署指南
+
+本项目是一个基于 Spring Boot 和 Nginx 的多实例代理管理系统。系统通过 Nginx 实现了生产环境和测试环境的分离部署，支持多实例代理服务的统一管理和调度。
+
+项目采用前后端分离架构，前端使用 Vue/React 单页应用，后端提供 RESTful API 接口，通过 Nginx 实现负载均衡和反向代理功能。
 
 ## 项目结构
-本项目采用前后端分离架构，Nginx 作为反向代理与网关层，负责：
-- 前端静态资源分发（生产与测试两套前端目录）
-- 后端 API 路由转发（生产与测试两套后端）
-- 回调接口安全与限流控制
-- 静态资源缓存与 Gzip 压缩
-- 基础安全加固与日志记录
+
+项目采用标准的 Maven 项目结构，主要分为以下几个部分：
 
 ```mermaid
 graph TB
-client["客户端浏览器"] --> nginx["Nginx 反向代理"]
-nginx --> prod_up["upstream 生产后端<br/>backend_prod"]
-nginx --> test_up["upstream 测试后端<br/>backend_test"]
-prod_up --> tomcat8080["Tomcat 应用实例:8080"]
-test_up --> tomcat8081["Tomcat 应用实例:8081"]
-nginx --> admin_ui["前端静态资源<br/>/var/www/linkfast-admin"]
-nginx --> test_ui["前端静态资源<br/>/var/www/linkfast-admin-test"]
+subgraph "前端静态资源"
+A[linkfast-admin<br/>生产环境前端]
+B[linkfast-admin-test<br/>测试环境前端]
+end
+subgraph "Nginx 配置"
+C[link-fast-multi-instance.conf<br/>多实例配置]
+D[link-fast.conf<br/>单实例配置]
+E[linkfast-admin.conf<br/>静态资源配置]
+end
+subgraph "后端服务"
+F[Spring MVC 控制器]
+G[业务逻辑层]
+H[数据访问层]
+I[数据库配置]
+end
+A --> C
+B --> C
+C --> F
+D --> F
+E --> A
+F --> G
+G --> H
+H --> I
 ```
 
-图表来源
-- [link-fast-multi-instance.conf:9-48](file://docs/nginx/link-fast-multi-instance.conf#L9-L48)
+**图表来源**
+- [link-fast-multi-instance.conf:1-71](file://docs/nginx/link-fast-multi-instance.conf#L1-L71)
+- [link-fast.conf:1-67](file://docs/nginx/link-fast.conf#L1-L67)
+- [linkfast-admin.conf:1-37](file://docs/nginx/linkfast-admin.conf#L1-L37)
 
-章节来源
+**章节来源**
 - [link-fast-multi-instance.conf:1-71](file://docs/nginx/link-fast-multi-instance.conf#L1-L71)
 - [link-fast.conf:1-67](file://docs/nginx/link-fast.conf#L1-L67)
 - [linkfast-admin.conf:1-37](file://docs/nginx/linkfast-admin.conf#L1-L37)
 
 ## 核心组件
-- Nginx 配置文件
-  - 多实例配置：生产与测试分别定义 upstream，分别代理至不同端口的 Tomcat 实例
-  - 单实例配置：统一上游至本地 8080，适合单实例或演示环境
-  - 管理端前端配置：独立前端站点，支持回调与静态资源缓存
-- 后端服务
-  - Spring MVC 控制器：统一返回体封装、回调接口处理
-  - 数据源与连接池：Druid 连接池配置，MySQL 参数优化
-  - 日志：Logback 分类输出，便于多实例日志聚合与分析
-- 会话与安全
-  - Session 超时与 Cookie 安全配置
-  - 回调接口精确匹配与限流控制
 
-章节来源
-- [link-fast-multi-instance.conf:1-71](file://docs/nginx/link-fast-multi-instance.conf#L1-L71)
-- [link-fast.conf:17-30](file://docs/nginx/link-fast.conf#L17-L30)
-- [ProxyCallbackController.java:24-95](file://src/main/java/cn/linkfast/controller/ProxyCallbackController.java#L24-L95)
-- [Result.java:10-59](file://src/main/java/cn/linkfast/common/Result.java#L10-L59)
-- [applicationContext.xml:17-52](file://src/main/resources/applicationContext.xml#L17-L52)
-- [jdbc.properties:1-34](file://src/main/resources/jdbc.properties#L1-L34)
-- [logback.xml:1-48](file://src/main/resources/logback.xml#L1-L48)
-- [web.xml:60-66](file://src/main/webapp/WEB-INF/web.xml#L60-L66)
+### Nginx 多实例配置
 
-## 架构总览
-多实例 Nginx 架构以 Nginx 为中心，向上游的多个 Tomcat 实例分发请求，同时提供前端静态资源与回调接口保护。生产与测试环境通过不同的 upstream 与路径前缀隔离，互不影响。
+系统提供了三种不同的 Nginx 配置方案：
+
+1. **多实例配置** (`link-fast-multi-instance.conf`)
+   - 支持生产环境和测试环境同时运行
+   - 通过不同的上游服务器区分环境
+   - 提供独立的静态资源路径
+
+2. **单实例配置** (`link-fast.conf`)
+   - 简化的单一环境配置
+   - 集成了回调接口处理
+   - 适用于简单的部署场景
+
+3. **静态资源配置** (`linkfast-admin.conf`)
+   - 专门针对前端静态资源的优化配置
+   - 解决 SPA 应用的路由刷新问题
+   - 提供静态资源缓存策略
+
+### 后端 API 控制器
+
+系统的核心控制器位于 `ProxyInstanceController`，提供以下主要功能：
+
+- 代理实例列表查询（支持分页和多条件筛选）
+- 代理实例备注更新
+- 代理实例信息同步
+- 自动续费状态管理
+
+**章节来源**
+- [ProxyInstanceController.java:1-94](file://src/main/java/cn/linkfast/controller/ProxyInstanceController.java#L1-L94)
+- [ProxyInstanceServiceImpl.java:1-247](file://src/main/java/cn/linkfast/service/impl/ProxyInstanceServiceImpl.java#L1-L247)
+
+## 架构概览
+
+系统采用分层架构设计，实现了清晰的关注点分离：
 
 ```mermaid
-sequenceDiagram
-participant C as "客户端"
-participant N as "Nginx"
-participant P as "生产后端 upstream"
-participant T as "Tomcat 实例 : 8080"
-participant S as "Spring MVC 控制器"
-C->>N : 请求 /api/...
-N->>P : 转发到 backend_prod
-P->>T : 负载均衡选择实例
-T->>S : 调用控制器处理
-S-->>T : 返回统一响应体
-T-->>N : 返回响应
-N-->>C : 返回响应
+graph TB
+subgraph "客户端层"
+Client[浏览器/移动端]
+end
+subgraph "Nginx 层"
+Nginx[Nginx 反向代理]
+Static[静态资源处理]
+API[API 路由]
+end
+subgraph "应用层"
+Controller[Spring MVC 控制器]
+Service[业务服务层]
+DAO[数据访问层]
+end
+subgraph "数据层"
+DB[(MySQL 数据库)]
+ThirdParty[第三方 API]
+end
+Client --> Nginx
+Nginx --> Static
+Nginx --> API
+API --> Controller
+Controller --> Service
+Service --> DAO
+DAO --> DB
+Service --> ThirdParty
 ```
 
-图表来源
-- [link-fast-multi-instance.conf:30-37](file://docs/nginx/link-fast-multi-instance.conf#L30-L37)
-- [ProxyCallbackController.java:24-95](file://src/main/java/cn/linkfast/controller/ProxyCallbackController.java#L24-L95)
-- [Result.java:10-59](file://src/main/java/cn/linkfast/common/Result.java#L10-L59)
+**图表来源**
+- [ProxyInstanceController.java:24-94](file://src/main/java/cn/linkfast/controller/ProxyInstanceController.java#L24-L94)
+- [ProxyInstanceServiceImpl.java:37-247](file://src/main/java/cn/linkfast/service/impl/ProxyInstanceServiceImpl.java#L37-L247)
+- [web.xml:23-40](file://src/main/webapp/WEB-INF/web.xml#L23-L40)
 
 ## 详细组件分析
 
-### Nginx 多实例配置（生产/测试分离）
-- upstream 定义
-  - 生产：backend_prod 指向 127.0.0.1:8080
-  - 测试：backend_test 指向 127.0.0.1:8081
-- 路由规则
-  - /api/ 路由转发至 backend_prod
-  - /test-api/ 路由先重写为 /api/ 再转发至 backend_test
-  - / 与 /test 路径分别指向生产与测试前端目录
-- 静态资源缓存与安全加固
-  - 静态资源按扩展名缓存，区分生产/测试根目录
-  - 禁止访问敏感路径（manager、host-manager、docs、examples）
-  - Gzip 压缩开启
+### Nginx 多实例配置详解
+
+#### 生产环境配置
 
 ```mermaid
 flowchart TD
-Start(["请求进入"]) --> Path{"路径类型"}
-Path --> |"/api/"| Prod["转发到 backend_prod"]
-Path --> |"/test-api/"| Rewrite["重写为 /api/"] --> Test["转发到 backend_test"]
-Path --> |"/ 或 /test"| Static["静态资源分发"]
-Prod --> End(["完成"])
-Test --> End
-Static --> End
+Start([请求到达]) --> CheckEnv{"检查请求路径"}
+CheckEnv --> |根路径 /| ProdFrontend["生产前端静态资源"]
+CheckEnv --> |/api/| ProdAPI["生产环境 API"]
+CheckEnv --> |/test| TestFrontend["测试前端静态资源"]
+CheckEnv --> |/test-api/| TestAPI["测试环境 API"]
+ProdFrontend --> ProdUpstream["upstream backend_prod<br/>端口: 8080"]
+ProdAPI --> ProdUpstream
+TestFrontend --> TestUpstream["upstream backend_test<br/>端口: 8081"]
+TestAPI --> TestUpstream
+ProdUpstream --> End([响应客户端])
+TestUpstream --> End
 ```
 
-图表来源
-- [link-fast-multi-instance.conf:16-48](file://docs/nginx/link-fast-multi-instance.conf#L16-L48)
-
-章节来源
+**图表来源**
 - [link-fast-multi-instance.conf:1-71](file://docs/nginx/link-fast-multi-instance.conf#L1-L71)
 
-### Nginx 单实例配置（统一上游）
-- 适用于单实例或演示环境
-- /api/ 路由统一转发至 127.0.0.1:8080
-- 回调接口精确匹配，限制非 GET 请求
-- 静态资源缓存与安全加固
+#### 配置特点
 
-章节来源
-- [link-fast.conf:17-30](file://docs/nginx/link-fast.conf#L17-L30)
-- [link-fast.conf:32-50](file://docs/nginx/link-fast.conf#L32-L50)
+1. **环境隔离**
+   - 生产环境: `backend_prod` (8080端口)
+   - 测试环境: `backend_test` (8081端口)
 
-### 管理端前端配置
-- 单独的前端站点，支持回调与跨域头
-- 静态资源缓存与 Gzip 压缩
-- 仅放行 /api/ 下的回调路径
+2. **路径映射**
+   - `/` → 生产前端静态资源
+   - `/test` → 测试前端静态资源
+   - `/api/` → 生产后端 API
+   - `/test-api/` → 测试后端 API
 
-章节来源
-- [linkfast-admin.conf:17-25](file://docs/nginx/linkfast-admin.conf#L17-L25)
-- [linkfast-admin.conf:27-31](file://docs/nginx/linkfast-admin.conf#L27-L31)
+3. **静态资源优化**
+   - CSS/JS 图片缓存 7 天
+   - 支持不同环境的静态资源目录
+   - Gzip 压缩优化
 
-### 后端回调接口与统一响应体
-- 回调控制器：/api/callback/notify，仅允许 GET
-- 统一响应体：Result<T>，成功返回 code=200，便于第三方回调确认
-- 业务处理：根据 type 分支处理产品、订单、实例同步
+**章节来源**
+- [link-fast-multi-instance.conf:1-71](file://docs/nginx/link-fast-multi-instance.conf#L1-L71)
+
+### 后端 API 设计
+
+#### 控制器层
+
+```mermaid
+classDiagram
+class ProxyInstanceController {
++queryProxyInstances(queryDto) Result
++updateRemark(dto) Result
++syncProxyInstance(instanceNos) Result
++updateRenewStatus(instanceNo, dto) Result
+}
+class ProxyInstanceService {
+<<interface>>
++queryProxyInstances(queryDto) PageResult
++updateRemark(instanceNo, remark) void
++syncProxyInstance(instanceNos) ProxyInstanceSyncResultVO
++updateRenewStatus(instanceNo, renew) void
+}
+class ProxyInstanceServiceImpl {
+-proxyInstanceDAO ProxyInstanceDAO
+-apiPacketUtil ApiPacketUtil
++queryProxyInstances(queryDto) PageResult
++updateRemark(instanceNo, remark) void
++syncProxyInstance(instanceNos) ProxyInstanceSyncResultVO
++updateRenewStatus(instanceNo, renew) void
+}
+ProxyInstanceController --> ProxyInstanceService : 依赖
+ProxyInstanceServiceImpl ..|> ProxyInstanceService : 实现
+ProxyInstanceController --> ProxyInstanceServiceImpl : 注入
+```
+
+**图表来源**
+- [ProxyInstanceController.java:24-94](file://src/main/java/cn/linkfast/controller/ProxyInstanceController.java#L24-L94)
+- [ProxyInstanceServiceImpl.java:37-247](file://src/main/java/cn/linkfast/service/impl/ProxyInstanceServiceImpl.java#L37-L247)
+
+#### 业务流程
 
 ```mermaid
 sequenceDiagram
-participant Third as "第三方平台"
-participant N as "Nginx"
-participant C as "回调控制器"
-participant S as "业务服务"
-Third->>N : GET /api/callback/notify?type=...&no=...
-N->>C : 转发到 /api/callback/notify
-C->>S : 根据 type 调用相应服务
-S-->>C : 返回处理结果
-C-->>N : 返回 Result.success(null)
-N-->>Third : 200 OK
+participant Client as 客户端
+participant Controller as 控制器
+participant Service as 服务层
+participant DAO as 数据访问层
+participant DB as 数据库
+Client->>Controller : GET /api/instance/list
+Controller->>Controller : 参数验证
+Controller->>Service : queryProxyInstances(queryDto)
+Service->>Service : 构建查询条件
+Service->>DAO : selectListByCondition(condition)
+DAO->>DB : 查询实例列表
+DB-->>DAO : 返回数据
+DAO-->>Service : 实体列表
+Service->>Service : 批量加载地域信息
+Service->>Service : 实体转VO
+Service-->>Controller : PageResult
+Controller-->>Client : JSON 响应
 ```
 
-图表来源
-- [ProxyCallbackController.java:42-94](file://src/main/java/cn/linkfast/controller/ProxyCallbackController.java#L42-L94)
-- [Result.java:27-44](file://src/main/java/cn/linkfast/common/Result.java#L27-L44)
+**图表来源**
+- [ProxyInstanceController.java:35-40](file://src/main/java/cn/linkfast/controller/ProxyInstanceController.java#L35-L40)
+- [ProxyInstanceServiceImpl.java:121-146](file://src/main/java/cn/linkfast/service/impl/ProxyInstanceServiceImpl.java#L121-L146)
 
-章节来源
-- [ProxyCallbackController.java:24-95](file://src/main/java/cn/linkfast/controller/ProxyCallbackController.java#L24-L95)
-- [Result.java:10-59](file://src/main/java/cn/linkfast/common/Result.java#L10-L59)
+**章节来源**
+- [ProxyInstanceController.java:1-94](file://src/main/java/cn/linkfast/controller/ProxyInstanceController.java#L1-L94)
+- [ProxyInstanceServiceImpl.java:1-247](file://src/main/java/cn/linkfast/service/impl/ProxyInstanceServiceImpl.java#L1-L247)
 
-### 数据库与连接池配置
-- Druid 连接池核心参数
-  - 初始连接数、最小空闲、最大活跃
-  - 空闲连接回收周期与最小空闲时间
-  - 连接泄露检测与移除
-  - 获取连接失败容错
-- MySQL 服务端参数优化
-  - wait_timeout、interactive_timeout、connect_timeout、net_read_timeout、net_write_timeout
-  - 最大连接数与单用户最大连接数
+### 数据模型设计
 
-章节来源
-- [applicationContext.xml:17-52](file://src/main/resources/applicationContext.xml#L17-L52)
-- [jdbc.properties:1-34](file://src/main/resources/jdbc.properties#L1-L34)
-- [my.cnf:32-48](file://docs/database/my.cnf#L32-L48)
-
-### 日志与会话配置
-- 日志分类输出：业务日志与服务器日志分离，便于多实例聚合
-- Session 配置：超时时间与 Cookie 安全属性
-
-章节来源
-- [logback.xml:6-47](file://src/main/resources/logback.xml#L6-L47)
-- [web.xml:60-66](file://src/main/webapp/WEB-INF/web.xml#L60-L66)
-
-## 依赖关系分析
-- Nginx 依赖后端 Tomcat 实例（生产/测试）
-- 后端依赖数据库连接池（Druid）
-- 回调接口依赖第三方平台推送
-- 日志与监控依赖统一的日志输出与 Nginx 访问/错误日志
+#### 代理实例实体
 
 ```mermaid
-graph LR
-N["Nginx 配置"] --> P["生产后端 Tomcat:8080"]
-N --> T["测试后端 Tomcat:8081"]
-P --> D["Druid 连接池"]
-T --> D
-D --> M["MySQL 服务"]
-N --> L["日志与监控"]
+erDiagram
+PROXY_INSTANCE {
+bigint id PK
+varchar order_no
+varchar app_order_no
+varchar instance_no UK
+integer proxy_type
+varchar protocol
+varchar ip
+integer port
+varchar country_code
+varchar city_code
+varchar username
+varchar pwd
+decimal flow_total
+decimal flow_balance
+integer status
+integer renew
+datetime open_at
+datetime renew_at
+datetime release_at
+varchar product_no
+varchar remark
+datetime create_time
+datetime update_time
+}
+PROXY_REGION {
+varchar region_code PK
+varchar region_name
+varchar region_type
+}
+PROXY_INSTANCE ||--|| PROXY_REGION : "country_code"
+PROXY_INSTANCE ||--|| PROXY_REGION : "city_code"
 ```
 
-图表来源
-- [link-fast-multi-instance.conf:1-7](file://docs/nginx/link-fast-multi-instance.conf#L1-L7)
-- [applicationContext.xml:17-52](file://src/main/resources/applicationContext.xml#L17-L52)
-- [my.cnf:32-48](file://docs/database/my.cnf#L32-L48)
+**图表来源**
+- [ProxyInstance.java:13-57](file://src/main/java/cn/linkfast/entity/ProxyInstance.java#L13-L57)
 
-章节来源
-- [link-fast-multi-instance.conf:1-71](file://docs/nginx/link-fast-multi-instance.conf#L1-L71)
-- [applicationContext.xml:17-52](file://src/main/resources/applicationContext.xml#L17-L52)
-- [my.cnf:32-48](file://docs/database/my.cnf#L32-L48)
+**章节来源**
+- [ProxyInstance.java:1-57](file://src/main/java/cn/linkfast/entity/ProxyInstance.java#L1-L57)
 
-## 性能考量
-- 负载均衡策略
-  - 默认轮询（least_conn 可选），在多实例场景下建议结合健康检查与权重
-  - 权重分配：根据实例硬件能力与业务峰值进行差异化权重
-- 健康检查与故障转移
-  - 建议启用 Nginx upstream 健康检查模块（如 stream/upstream_check_module），或通过外部探针实现
-  - 故障转移：当某实例不可用时，自动切换到其他实例，减少单点风险
-- 静态资源与 Gzip
-  - 静态资源缓存与 Gzip 压缩可显著降低带宽与延迟
-- 数据库连接池
-  - 合理设置最大活跃连接数与空闲回收周期，避免连接池耗尽
-  - MySQL 空闲超时与连接超时参数需与连接池策略匹配
+### 数据访问层
 
-章节来源
-- [link-fast-multi-instance.conf:1-7](file://docs/nginx/link-fast-multi-instance.conf#L1-L7)
+#### DAO 接口设计
+
+```mermaid
+classDiagram
+class ProxyInstanceDAO {
+<<interface>>
++batchUpdate(instances) int
++selectListByCondition(condition) List
++countByCondition(condition) int
++updateRemarkByInstanceNo(instanceNo, remark) int
++updateRenewByInstanceNo(instanceNo, renew) int
++selectAutoRenewExpiringInstances(days) List
+}
+class ProxyInstanceSearchCondition {
+integer[] proxyType
+integer status
+integer pageNum
+integer pageSize
+string countryCode
+string cityCode
+string ip
+string instanceNo
+integer limit
+integer offset
+}
+ProxyInstanceDAO --> ProxyInstanceSearchCondition : 使用
+```
+
+**图表来源**
+- [ProxyInstanceDAO.java:11-62](file://src/main/java/cn/linkfast/dao/ProxyInstanceDAO.java#L11-L62)
+- [ProxyInstanceQueryDTO.java:15-63](file://src/main/java/cn/linkfast/dto/ProxyInstanceQueryDTO.java#L15-L63)
+
+**章节来源**
+- [ProxyInstanceDAO.java:1-63](file://src/main/java/cn/linkfast/dao/ProxyInstanceDAO.java#L1-L63)
+- [ProxyInstanceQueryDTO.java:1-65](file://src/main/java/cn/linkfast/dto/ProxyInstanceQueryDTO.java#L1-L65)
+
+## 依赖关系分析
+
+### Spring 配置体系
+
+```mermaid
+graph TB
+subgraph "Web 配置"
+WebXML[web.xml]
+WebConfig[WebMvcConfig]
+AppCfg[AppConfig]
+end
+subgraph "数据库配置"
+JDBCProps[jdbc.properties]
+AppCtx[applicationContext.xml]
+end
+subgraph "API 配置"
+APIProps[api.properties]
+end
+WebXML --> WebConfig
+WebXML --> AppCfg
+AppCfg --> AppCtx
+AppCtx --> JDBCProps
+AppCfg --> APIProps
+```
+
+**图表来源**
+- [web.xml:10-35](file://src/main/webapp/WEB-INF/web.xml#L10-L35)
+- [WebMvcConfig.java:19-62](file://src/main/java/cn/linkfast/config/WebMvcConfig.java#L19-L62)
+- [AppConfig.java:14-36](file://src/main/java/cn/linkfast/config/AppConfig.java#L14-L36)
+- [applicationContext.xml:14-67](file://src/main/resources/applicationContext.xml#L14-L67)
+
+### Maven 依赖关系
+
+系统采用现代化的 Java 技术栈，主要依赖包括：
+
+- **Spring Framework 6.2.13**: 核心框架
+- **Jackson 2.18.2**: JSON 处理
+- **Apache HttpClient5**: HTTP 客户端
+- **Druid 1.2.28**: 数据库连接池
+- **MySQL Connector/J 8.4.0**: 数据库驱动
+
+**章节来源**
+- [pom.xml:22-213](file://pom.xml#L22-L213)
+
+## 性能考虑
+
+### Nginx 性能优化
+
+1. **静态资源缓存**
+   - CSS/JS 文件缓存 7 天
+   - 图片资源缓存 7 天
+   - Gzip 压缩启用
+
+2. **连接池配置**
+   - 生产环境连接池大小: 20
+   - 最小空闲连接: 5
+   - 最大等待时间: 120000ms
+
+3. **超时配置**
+   - 连接超时: 30秒
+   - 读取超时: 60秒
+   - 写入超时: 120秒
+
+### 数据库性能优化
+
+```mermaid
+flowchart LR
+subgraph "MySQL 配置优化"
+A[wait_timeout: 7200s]
+B[max_connections: 200]
+C[innodb_buffer_pool_size: 2GB]
+D[innodb_flush_log_at_trx_commit: 2]
+end
+subgraph "连接池优化"
+E[Druid 连接池]
+F[空闲连接回收: 30分钟]
+G[连接泄露检测]
+end
+A --> E
+B --> E
+C --> E
+D --> E
+E --> F
+E --> G
+```
+
+**图表来源**
+- [my.cnf:32-68](file://docs/database/my.cnf#L32-L68)
 - [applicationContext.xml:23-52](file://src/main/resources/applicationContext.xml#L23-L52)
-- [my.cnf:32-48](file://docs/database/my.cnf#L32-L48)
 
-## 故障排查指南
-- 回调接口异常
-  - 确认 Nginx 是否正确转发至回调控制器
-  - 检查控制器日志与统一响应体返回
-- 负载均衡异常
-  - 检查 upstream 中各实例状态与健康检查
-  - 查看 Nginx 错误日志定位转发失败原因
-- 数据库连接问题
-  - 检查连接池参数与 MySQL 服务端超时配置
-  - 关注连接泄露与连接池耗尽告警
-- 日志与监控
-  - 业务日志与服务器日志分离，便于快速定位问题
-  - 结合 Nginx 访问/错误日志与应用日志进行关联分析
+**章节来源**
+- [my.cnf:1-68](file://docs/database/my.cnf#L1-L68)
+- [applicationContext.xml:1-67](file://src/main/resources/applicationContext.xml#L1-L67)
 
-章节来源
-- [link-fast.conf:17-30](file://docs/nginx/link-fast.conf#L17-L30)
-- [ProxyCallbackController.java:42-94](file://src/main/java/cn/linkfast/controller/ProxyCallbackController.java#L42-L94)
-- [logback.xml:6-47](file://src/main/resources/logback.xml#L6-L47)
-- [my.cnf:32-48](file://docs/database/my.cnf#L32-L48)
+## 故障排除指南
+
+### 常见问题及解决方案
+
+#### Nginx 配置问题
+
+1. **静态资源 404 错误**
+   - 检查静态资源目录权限
+   - 验证 root 路径配置
+   - 确认 try_files 指令正确
+
+2. **API 请求失败**
+   - 检查 upstream 服务器状态
+   - 验证代理头配置
+   - 查看 Nginx 错误日志
+
+#### Spring Boot 应用问题
+
+1. **数据库连接异常**
+   - 检查数据库连接字符串
+   - 验证连接池配置
+   - 查看数据库服务状态
+
+2. **API 响应超时**
+   - 检查业务逻辑性能
+   - 优化数据库查询
+   - 调整超时配置
+
+#### 数据库问题
+
+1. **连接超时断开**
+   - 调整 wait_timeout 设置
+   - 优化连接池配置
+   - 检查网络连接稳定性
+
+2. **批量插入性能问题**
+   - 调整 max_allowed_packet
+   - 优化事务提交策略
+   - 检查索引设计
+
+**章节来源**
+- [link-fast-multi-instance.conf:62-71](file://docs/nginx/link-fast-multi-instance.conf#L62-L71)
+- [applicationContext.xml:23-52](file://src/main/resources/applicationContext.xml#L23-L52)
+- [my.cnf:32-68](file://docs/database/my.cnf#L32-L68)
 
 ## 结论
-本文件基于现有 Nginx 配置与后端实现，总结了多实例部署的关键要点。建议在生产环境中引入健康检查与故障转移机制，合理规划实例数量与资源分配，并完善日志与监控体系，以确保系统的稳定性与可维护性。
 
-## 附录
+本项目通过精心设计的 Nginx 多实例配置和 Spring Boot 后端架构，实现了高效的代理服务管理系统。系统的主要优势包括：
 
-### 多实例部署最佳实践
-- 实例数量规划
-  - 基于业务峰值与并发量评估实例数量
-  - 为测试与生产环境分别预留实例，避免互相影响
-- 资源分配
-  - CPU/内存/磁盘与数据库连接池参数相匹配
-  - 合理设置 JVM 堆大小与 GC 参数
-- 性能监控
-  - Nginx 访问/错误日志与应用日志双轨监控
-  - 数据库连接池指标与 MySQL 服务端指标联动监控
+1. **环境隔离**: 支持生产环境和测试环境的完全隔离
+2. **性能优化**: 通过静态资源缓存和连接池优化提升响应速度
+3. **扩展性强**: 支持水平扩展和负载均衡
+4. **维护简便**: 清晰的分层架构便于维护和升级
 
-### 实际配置示例与部署指南
-- 多实例配置要点
-  - upstream 中添加多个 server，必要时设置权重
-  - 为生产与测试分别定义独立的 upstream 与路径前缀
-  - 回调接口使用精确匹配与限流控制
-- 部署步骤
-  - 准备前端静态资源目录（生产/测试）
-  - 启动多个 Tomcat 实例（8080/8081 等）
-  - 加载 Nginx 配置并验证转发规则
-  - 配置数据库连接池与 MySQL 参数
-  - 启动应用并观察日志与监控指标
-
-章节来源
-- [link-fast-multi-instance.conf:1-7](file://docs/nginx/link-fast-multi-instance.conf#L1-L7)
-- [link-fast.conf:17-30](file://docs/nginx/link-fast.conf#L17-L30)
-- [applicationContext.xml:17-52](file://src/main/resources/applicationContext.xml#L17-L52)
-- [jdbc.properties:1-34](file://src/main/resources/jdbc.properties#L1-L34)
-- [my.cnf:32-48](file://docs/database/my.cnf#L32-L48)
+建议在生产环境中：
+- 配置 SSL 证书
+- 设置监控告警
+- 定期备份数据库
+- 优化日志管理
+- 实施安全加固措施
