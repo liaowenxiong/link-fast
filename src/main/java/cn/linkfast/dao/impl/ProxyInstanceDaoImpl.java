@@ -38,12 +38,13 @@ public class ProxyInstanceDaoImpl implements ProxyInstanceDAO {
 
         String sql = "UPDATE proxy_instance SET " +
                 "order_no=?, proxy_type=?, protocol=?, ip=?, port=?, region_id=?, country_code=?, city_code=?, " +
-                "use_type=?, username=?, pwd=?, user_expired=?, flow_total=?, flow_balance=?, status=?, renew=?, bridges=?, " +
+                "use_type=?, username=?, pwd=?, user_expired=?, flow_total=?, flow_balance=?, status=?, bridges=?, "
+                +
                 "open_at=?, renew_at=?, release_at=?, product_no=?, extend_ip=?, project_id=?, " +
                 "update_time=CURRENT_TIMESTAMP " +
                 "WHERE instance_no=?";
 
-        List<Object[]> batchArgs = instances.stream().map(i -> new Object[]{
+        List<Object[]> batchArgs = instances.stream().map(i -> new Object[] {
                 i.getOrderNo(),
                 i.getProxyType(),
                 i.getProtocol(),
@@ -59,7 +60,6 @@ public class ProxyInstanceDaoImpl implements ProxyInstanceDAO {
                 i.getFlowTotal(),
                 i.getFlowBalance(),
                 i.getStatus(),
-                i.getRenew(),
                 toJson(i.getBridges()),
                 i.getOpenAt(),
                 i.getRenewAt(),
@@ -99,7 +99,11 @@ public class ProxyInstanceDaoImpl implements ProxyInstanceDAO {
         params.add(condition.getLimit());
         params.add(condition.getOffset());
 
-        return jdbcTemplate.query(sql.toString(), new BeanPropertyRowMapper<>(ProxyInstance.class), params.toArray());
+        long startTime = System.currentTimeMillis();
+        List<ProxyInstance> result = jdbcTemplate.query(sql.toString(), new BeanPropertyRowMapper<>(ProxyInstance.class), params.toArray());
+        long elapsed = System.currentTimeMillis() - startTime;
+        log.info("selectListByCondition 查询耗时：{}ms", elapsed);
+        return result;
     }
 
     @Override
@@ -128,7 +132,8 @@ public class ProxyInstanceDaoImpl implements ProxyInstanceDAO {
     /**
      * 拼接可选查询条件（列表查询和统计查询共用）
      */
-    private void appendOptionalConditions(StringBuilder sql, List<Object> params, ProxyInstanceSearchCondition condition) {
+    private void appendOptionalConditions(StringBuilder sql, List<Object> params,
+            ProxyInstanceSearchCondition condition) {
         if (condition.getStatus() != null) {
             sql.append("AND status = ? ");
             params.add(condition.getStatus());
@@ -145,6 +150,10 @@ public class ProxyInstanceDaoImpl implements ProxyInstanceDAO {
             sql.append("AND ip LIKE ? ");
             params.add("%" + condition.getIp() + "%");
         }
+        if (condition.getInstanceNo() != null && !condition.getInstanceNo().isEmpty()) {
+            sql.append("AND instance_no = ? ");
+            params.add(condition.getInstanceNo());
+        }
     }
 
     /**
@@ -159,10 +168,36 @@ public class ProxyInstanceDaoImpl implements ProxyInstanceDAO {
     }
 
     /**
+     * 根据实例编号更新自动续费状态
+     */
+    @Override
+    public int updateRenewByInstanceNo(String instanceNo, Integer renew) {
+        String sql = "UPDATE proxy_instance SET renew = ?, update_time = CURRENT_TIMESTAMP WHERE instance_no = ?";
+        int rows = jdbcTemplate.update(sql, renew, instanceNo);
+        log.info(">>> 更新实例自动续费状态，instanceNo: {}，renew: {}，影响行数: {}", instanceNo, renew, rows);
+        return rows;
+    }
+
+    /**
+     * 查询已开启自动续费且即将到期的代理实例
+     * 条件：renew = 1 且 user_expired 在当前时间到 N 天后的时间范围内
+     */
+    @Override
+    public List<ProxyInstance> selectAutoRenewExpiringInstances(int days) {
+        String sql = "SELECT * FROM proxy_instance WHERE renew = 1 " +
+                "AND user_expired IS NOT NULL " +
+                "AND user_expired > UNIX_TIMESTAMP(NOW()) " +
+                "AND user_expired <= UNIX_TIMESTAMP(DATE_ADD(NOW(), INTERVAL ? DAY)) " +
+                "ORDER BY user_expired";
+        return jdbcTemplate.query(sql, new BeanPropertyRowMapper<>(ProxyInstance.class), days);
+    }
+
+    /**
      * 将对象（List）转换为 JSON 字符串存入数据库
      */
     private String toJson(Object obj) {
-        if (obj == null) return "[]";
+        if (obj == null)
+            return "[]";
         try {
             return objectMapper.writeValueAsString(obj);
         } catch (JsonProcessingException e) {
@@ -171,4 +206,3 @@ public class ProxyInstanceDaoImpl implements ProxyInstanceDAO {
         }
     }
 }
-

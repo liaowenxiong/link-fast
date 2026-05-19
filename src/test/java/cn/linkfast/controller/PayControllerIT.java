@@ -25,12 +25,12 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 /**
- * 支付密码校验接口测试用例
+ * 支付密码校验接口集成测试
  */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {AppConfig.class, WebMvcConfig.class})
 @WebAppConfiguration
-public class PayControllerTest {
+public class PayControllerIT {
 
     @Autowired
     private WebApplicationContext webApplicationContext;
@@ -85,4 +85,3 @@ public class PayControllerTest {
                 .andExpect(jsonPath("$.data.message").value("支付密码正确"));
     }
 }
-

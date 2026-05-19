@@ -16,9 +16,12 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * 代理地域服务集成测试
+ */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {AppConfig.class})
-public class ProxyRegionServiceImplTest {
+public class ProxyRegionServiceImplIT {
 
     @Autowired
     private ProxyRegionService proxyRegionService;
@@ -65,4 +68,3 @@ public class ProxyRegionServiceImplTest {
         System.out.println(json);
     }
 }
-

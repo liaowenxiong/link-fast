@@ -11,9 +11,12 @@ import org.springframework.test.context.junit.jupiter.SpringExtension;
 
 import static org.junit.jupiter.api.Assertions.*;
 
+/**
+ * 代理产品DAO集成测试
+ */
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {AppConfig.class})
-public class ProxyProductDAOTest {
+public class ProxyProductDAOIT {
 
     @Autowired
     private ProxyProductDAO proxyProductDAO;
@@ -91,4 +94,3 @@ public class ProxyProductDAOTest {
         System.out.println("✅ 验证通过：retailPrice = " + product.getRetailPrice());
     }
 }
-

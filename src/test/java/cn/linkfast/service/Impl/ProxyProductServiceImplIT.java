@@ -17,6 +17,9 @@ import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 
+/**
+ * 代理产品服务集成测试
+ */
 // 使用 JUnit 5 的扩展来启动 Spring 容器
 @ExtendWith(SpringExtension.class)
 // 指向你的 Spring 核心配置文件
@@ -24,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertNotNull;
 @ContextConfiguration(classes = {AppConfig.class})
 // 测试结束后自动回滚事务，防止污染数据库（如果 Service 有 @Transactional）
 //@Transactional
-public class ProxyProductServiceImplTest {
+public class ProxyProductServiceImplIT {
 
     @Autowired
     private ProxyProductService productService;
@@ -49,7 +52,7 @@ public class ProxyProductServiceImplTest {
     @Test
     public void testSyncDataToDb() {
         try {
-            // 1. 构造同步所需的参数 (参考你 ProductSyncTask 里的配置)
+            // 1. 构造同步所需的参数 (参考你 ProxyProductScheduler 里的配置)
             // 101: 静态云平台, 102: 静态国内家庭, 103: 静态国外家庭
             Map<String, Object> params = new HashMap<>();
             params.put("proxyType", Arrays.asList(101, 102, 103, 104, 105));

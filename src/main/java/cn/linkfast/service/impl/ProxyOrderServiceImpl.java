@@ -467,14 +467,7 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
     }
 
     @Transactional(rollbackFor = Exception.class, noRollbackFor = NoRollbackBusinessException.class)
-    public ProxyRenewResultVO renewProxies(ProxyRenewDTO dto) {
-        // 1. 校验支付密码
-        PayPasswordVO payResult = payService.verifyPayPassword(dto.getPayPassword());
-        if (!payResult.getPassed()) {
-            throw new BusinessException(400, payResult.getMessage());
-        }
-
-        List<ProxyRenewItemDTO> items = dto.getItems();
+    public ProxyRenewResultVO renewProxies(List<ProxyRenewItemDTO> items) {
         Long userId = 2032958739262217115L;
         String appOrderNo = appOrderNoGenerator.generateRenewOrderId();
         log.info("成功生成appOrderNo，编号为：{}", appOrderNo);
@@ -514,30 +507,6 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
             Map<String, Object> instMap = new java.util.HashMap<>();
             instMap.put("instanceNo", renewItem.getInstanceNo());
             instMap.put("duration", renewItem.getDuration());
-
-            // // 根据 duration 和 unit 计算 cycleTimes
-            // int cycleTimes;
-            // Integer duration = inst.getDuration();
-            // Integer unit = inst.getUnit();
-            // Integer renewMonths = inst.getRenewMonths() != null ? inst.getRenewMonths() :
-            // 1;
-            //
-            // if (duration != null && duration == 1 && unit != null && unit == 1) {
-            // // duration=1, unit=1（天）：月数转天数，1个月=30天
-            // cycleTimes = renewMonths * 30;
-            // } else if (duration != null && duration == 1 && unit != null && unit == 3) {
-            // // duration=1, unit=3（月）：cycleTimes=月数
-            // cycleTimes = renewMonths;
-            // } else if (duration != null && duration == 30 && unit != null && unit == 1) {
-            // // duration=30, unit=1（天，即30天/月）：cycleTimes=月数
-            // cycleTimes = renewMonths;
-            // } else if (duration != null && duration == 1 && unit != null && unit == 4) {
-            // // duration=1, unit=4（年）：仅支持12个月，cycleTimes=1
-            // cycleTimes = 1;
-            // } else {
-            // // 默认情况
-            // cycleTimes = renewMonths;
-            // }
             instMap.put("cycleTimes", renewItem.getCycleTimes());
             instanceList.add(instMap);
         }
@@ -549,7 +518,7 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
             String url = baseUrl + instanceRenewPath;
             log.info("续费代理 - 请求URL: {}, 请求参数: {}", url, objectMapper.writeValueAsString(req));
 
-            // ===== 场景1：请求第三方接口失败，对方系统没有收到请求，重试3次，仍失败则回滚 =====
+            // 请求第三方接口失败，对方系统没有收到请求，重试3次，仍失败则回滚
             String resp = null;
             Exception sendException = null;
             for (int attempt = 1; attempt <= 3; attempt++) {
@@ -558,7 +527,7 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
                     sendException = null;
                     break;
                 } catch (java.net.ConnectException | java.net.UnknownHostException e) {
-                    // 连接建立失败：对方系统完全没有收到请求，可以安全重试
+                    // 场景1：连接建立失败，对方系统完全没有收到请求，可以安全重试
                     sendException = e;
                     log.warn("续费代理 - 第{}次请求连接失败: {}", attempt, e.getMessage());
                     if (attempt < 3) {
@@ -569,13 +538,12 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
                         }
                     }
                 } catch (Exception e) {
-                    // ===== 场景3：连接已建立，请求已发送到对方，但响应读取失败 =====
-                    // 对方可能已落库，不可回滚，保留本地数据
+                    // 场景2：连接已建立，请求已发送到对方，但响应读取失败，对方可能已落库，不可回滚，保留本地数据
                     log.error("续费代理 - 请求已发送但响应读取失败，对方可能已落库，保留本地数据，appOrderNo: {}", appOrderNo, e);
                     throw new NoRollbackBusinessException("续费代理请求已发送，但响应读取异常，请联系管理员确认续费结果，appOrderNo: " + appOrderNo, e);
                 }
             }
-            // 场景1：重试3次仍连接失败，可安全回滚
+            // 场景3：重试3次仍连接失败，可安全回滚
             if (sendException != null) {
                 log.error("续费代理 - 重试3次后仍连接失败，回滚本地数据，appOrderNo: {}", appOrderNo, sendException);
                 throw new BusinessException("续费代理请求失败，请稍后重试", sendException);
@@ -583,7 +551,7 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
 
             log.info("续费代理 - 响应: {}", resp);
 
-            // ===== 场景4：sendPost返回空字符串，对方可能已落库，不可回滚 =====
+            // sendPost返回空字符串，对方可能已落库，不可回滚
             if (resp == null || resp.isEmpty()) {
                 log.error("续费代理 - 响应为空，对方可能已落库，保留本地数据，appOrderNo: {}", appOrderNo);
                 throw new NoRollbackBusinessException("续费代理响应为空，请联系管理员确认续费结果，appOrderNo: " + appOrderNo);
@@ -594,12 +562,12 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
             try {
                 root = objectMapper.readTree(resp);
             } catch (Exception e) {
-                // 响应不是合法JSON，对方可能已落库，不可回滚
+                // 场景5：响应不是合法JSON，对方可能已落库，不可回滚
                 log.error("续费代理 - 响应非法JSON，对方可能已落库，保留本地数据，appOrderNo: {}, resp: {}", appOrderNo, resp, e);
                 throw new NoRollbackBusinessException("续费代理响应格式异常，请联系管理员确认续费结果，appOrderNo: " + appOrderNo, e);
             }
 
-            // ===== 场景2：对方返回非200，业务处理失败，对方未落库，可回滚 =====
+            // 场景6：对方返回非200，业务处理失败，对方未落库，可回滚
             int respCode = root.path("code").asInt(-1);
             if (respCode != 200) {
                 String msg = root.path("msg").asText("");
@@ -607,7 +575,7 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
                 throw new BusinessException("续费失败: " + msg);
             }
 
-            // ===== 场景6：code=200，data节点缺失/null/空字符串，对方已落库，不可回滚 =====
+            // 场景7：code=200，data节点缺失/null/空字符串，对方已落库，不可回滚
             JsonNode dataJsonNode = root.path("data");
             if (dataJsonNode.isMissingNode() || dataJsonNode.isNull()) {
                 log.error("续费代理 - code=200 但data节点缺失或为null，对方已落库，保留本地数据，appOrderNo: {}", appOrderNo);
@@ -619,7 +587,7 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
                 throw new NoRollbackBusinessException("续费代理响应data为空，请联系管理员确认续费结果，appOrderNo: " + appOrderNo);
             }
 
-            // ===== 场景7：解密失败，对方已落库，不可回滚 =====
+            // 场景8：解密失败，对方已落库，不可回滚
             String decryptedJson;
             try {
                 decryptedJson = apiPacketUtil.unpack(encryptedData);
@@ -629,7 +597,7 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
             }
             log.info("续费代理接口返回数据解密成功: {}", decryptedJson);
 
-            // ===== 场景8：解密成功，但JSON非法或orderNo为空，对方已落库，不可回滚 =====
+            // 场景9：解密成功，但JSON非法或orderNo为空，对方已落库，不可回滚
             String orderNo;
             java.math.BigDecimal amount;
             try {
@@ -660,12 +628,6 @@ public class ProxyOrderServiceImpl implements ProxyOrderService {
             vo.setAmount(amount);
             vo.setStatus(1);
             return vo;
-        } catch (NoRollbackBusinessException e) {
-            // 对方已落库场景：不回滚本地数据，直接透传给Controller
-            throw e;
-        } catch (BusinessException e) {
-            // 可回滚场景：@Transactional自动回滚
-            throw e;
         } catch (Exception e) {
             // 兜底：未预期异常，回滚数据
             throw new BusinessException("续费代理失败，请稍后重试", e);

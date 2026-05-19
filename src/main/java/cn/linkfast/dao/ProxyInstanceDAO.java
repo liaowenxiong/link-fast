@@ -42,5 +42,21 @@ public interface ProxyInstanceDAO {
      * @return 影响行数
      */
     int updateRemarkByInstanceNo(String instanceNo, String remark);
-}
 
+    /**
+     * 根据实例编号更新自动续费状态
+     *
+     * @param instanceNo 平台实例编号
+     * @param renew      自动续费状态（0=关闭，1=开启）
+     * @return 影响行数
+     */
+    int updateRenewByInstanceNo(String instanceNo, Integer renew);
+
+    /**
+     * 查询已开启自动续费且即将到期的代理实例
+     *
+     * @param days 距离到期天数
+     * @return 即将到期的代理实例列表
+     */
+    List<ProxyInstance> selectAutoRenewExpiringInstances(int days);
+}

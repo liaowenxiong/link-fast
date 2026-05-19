@@ -26,7 +26,7 @@ public class ProxyRenewOrderItem implements Serializable {
     // 代理续费订单的id
     private Long orderId;
 
-    // 代理续费订单的订单号
+    // 代理续费订单的平台订单号
     private String orderNo;
 
     // 代理续费订单的渠道商订单号

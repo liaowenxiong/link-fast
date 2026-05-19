@@ -9,6 +9,7 @@ import cn.linkfast.vo.ProxyReleaseResultVO;
 import cn.linkfast.vo.ProxyRenewResultVO;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.List;
 import java.util.Map;
 
 public interface ProxyOrderService {
@@ -39,7 +40,7 @@ public interface ProxyOrderService {
     ProxyOrderVO getOrderByAppOrderNo(String appOrderNo);
 
     @Transactional(rollbackFor = Exception.class, noRollbackFor = NoRollbackBusinessException.class)
-    ProxyRenewResultVO renewProxies(ProxyRenewDTO dto);
+    ProxyRenewResultVO renewProxies(List<ProxyRenewItemDTO> items);
 
     /**
      * 释放代理实例

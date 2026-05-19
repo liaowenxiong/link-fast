@@ -2,20 +2,17 @@ package cn.linkfast.controller;
 
 import cn.linkfast.common.PageResult;
 import cn.linkfast.common.Result;
-import cn.linkfast.dto.ProxyOrderQueryDTO;
-import cn.linkfast.dto.ProxyPurchaseDTO;
-import cn.linkfast.dto.ProxyReleaseDTO;
-import cn.linkfast.dto.ProxyRenewDTO;
+import cn.linkfast.dto.*;
 import cn.linkfast.exception.BusinessException;
+import cn.linkfast.service.PayService;
 import cn.linkfast.service.ProxyOrderService;
-import cn.linkfast.vo.ProxyOrderVO;
-import cn.linkfast.vo.ProxyPurchaseResultVO;
-import cn.linkfast.vo.ProxyReleaseResultVO;
-import cn.linkfast.vo.ProxyRenewResultVO;
+import cn.linkfast.vo.*;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 /**
  * 订单接口控制器
@@ -26,6 +23,7 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api/order")
 public class ProxyOrderController {
     private final ProxyOrderService proxyOrderService;
+    private final PayService payService;
 
     /**
      * 获取订单列表（分页）
@@ -46,14 +44,18 @@ public class ProxyOrderController {
         return Result.success(proxyOrderService.purchaseProxies(dto));
     }
 
-
     /**
      * 续费代理实例
      */
     @PostMapping("/renew")
     public Result<ProxyRenewResultVO> renewProxies(@RequestBody @Validated ProxyRenewDTO dto) {
+        PayPasswordVO payResult = payService.verifyPayPassword(dto.getPayPassword());
+        if (!payResult.getPassed()) {
+            throw new BusinessException(400, payResult.getMessage());
+        }
+        List<ProxyRenewItemDTO> items = dto.getItems();
         try {
-            ProxyRenewResultVO vo = proxyOrderService.renewProxies(dto);
+            ProxyRenewResultVO vo = proxyOrderService.renewProxies(items);
             return Result.success(vo);
         } catch (BusinessException e) {
             log.error("续费代理失败: {}", e.getMessage());

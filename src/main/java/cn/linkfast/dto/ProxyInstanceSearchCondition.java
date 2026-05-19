@@ -48,5 +48,10 @@ public class ProxyInstanceSearchCondition implements Serializable {
      * IP地址（模糊查询）
      */
     private String ip;
+
+    /**
+     * 代理编号（精确查询）
+     */
+    private String instanceNo;
 }
 

@@ -33,7 +33,7 @@
         <property name="validationQueryTimeout" value="3"/>          <!-- 检测SQL超时时间3秒 -->
 
         <!-- 连接检测策略：性能与可用性平衡 -->
-        <property name="testOnBorrow" value="true"/>    <!-- 取连接时检测有效性（防止拿到死连接） -->
+        <property name="testOnBorrow" value="false"/>   <!-- 取连接时不检测（跨公网每次SELECT 1多一次RTT，严重拖慢查询） -->
         <property name="testOnReturn" value="false"/>   <!-- 关闭归还连接时检测 -->
         <property name="testWhileIdle" value="true"/>   <!-- 空闲时检测（核心） -->
 

@@ -30,7 +30,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 @ExtendWith(SpringExtension.class)
 @ContextConfiguration(classes = {AppConfig.class, WebMvcConfig.class})
 @WebAppConfiguration
-public class ProxyCallbackControllerTest {
+public class ProxyCallbackControllerIT {
 
     @Autowired
     private WebApplicationContext webApplicationContext;

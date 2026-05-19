@@ -20,7 +20,7 @@ import java.util.Map;
 @Component
 @Slf4j
 @RequiredArgsConstructor
-public class ProductSyncTask {
+public class ProxyProductScheduler {
 
     // final 修饰的字段会被 Lombok 自动纳入构造函数中，实现完美注入
     private final ProxyProductService proxyProductService;

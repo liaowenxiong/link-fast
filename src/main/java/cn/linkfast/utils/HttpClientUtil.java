@@ -33,6 +33,7 @@ public final class HttpClientUtil {
                 int status = response.getCode();
                 if (status >= 200 && status < 300) {
                     String result = EntityUtils.toString(response.getEntity(), StandardCharsets.UTF_8);
+                    // 返回业务 Result 的 JSON 字符串。
                     return result != null ? result : "";
                 } else {
                     log.error("HTTP 请求失败，状态码: {}", status);

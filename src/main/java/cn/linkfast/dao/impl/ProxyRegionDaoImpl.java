@@ -150,5 +150,42 @@ public class ProxyRegionDaoImpl implements ProxyRegionDAO {
         }, regionCode);
         return list.isEmpty() ? null : list.get(0);
     }
+
+    @Override
+    public Map<String, ProxyRegion> selectByRegionCodes(List<String> regionCodes) {
+        if (regionCodes == null || regionCodes.isEmpty()) {
+            return Collections.emptyMap();
+        }
+        // 去重
+        List<String> uniqueCodes = regionCodes.stream().distinct().toList();
+
+        String placeholders = String.join(",", Collections.nCopies(uniqueCodes.size(), "?"));
+        String sql = "SELECT id, parent_id, level, region_code, region_name, region_en_name, " +
+                "sort, full_code, full_name, status, create_time, update_time " +
+                "FROM proxy_region WHERE region_code IN (" + placeholders + ")";
+
+        List<ProxyRegion> list = jdbcTemplate.query(sql, (rs, rowNum) -> {
+            ProxyRegion r = new ProxyRegion();
+            r.setId(rs.getLong("id"));
+            r.setParentId(rs.getLong("parent_id"));
+            r.setLevel(rs.getInt("level"));
+            r.setRegionCode(rs.getString("region_code"));
+            r.setRegionName(rs.getString("region_name"));
+            r.setRegionEnName(rs.getString("region_en_name"));
+            r.setSort(rs.getInt("sort"));
+            r.setFullCode(rs.getString("full_code"));
+            r.setFullName(rs.getString("full_name"));
+            r.setStatus(rs.getInt("status"));
+            r.setCreateTime(rs.getTimestamp("create_time"));
+            r.setUpdateTime(rs.getTimestamp("update_time"));
+            return r;
+        }, uniqueCodes.toArray());
+
+        Map<String, ProxyRegion> resultMap = new java.util.HashMap<>();
+        for (ProxyRegion r : list) {
+            resultMap.put(r.getRegionCode(), r);
+        }
+        return resultMap;
+    }
 }
 

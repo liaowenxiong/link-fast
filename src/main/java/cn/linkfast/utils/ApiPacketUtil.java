@@ -2,6 +2,7 @@ package cn.linkfast.utils;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.annotation.PostConstruct;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -14,6 +15,7 @@ import java.util.UUID;
  * API 数据包加密与解密工具类
  * 已改为 Spring 组件，支持从 api.properties 读取配置
  */
+@Slf4j
 @Component
 public class ApiPacketUtil {
 
@@ -93,6 +95,7 @@ public class ApiPacketUtil {
      * 解密响应数据中的 data 字段
      */
     public String unpack(String encryptedData) throws Exception {
+        log.info("待解密数据: {}", encryptedData);
         if (encryptedData == null || encryptedData.isEmpty()) {
             return null;
         }

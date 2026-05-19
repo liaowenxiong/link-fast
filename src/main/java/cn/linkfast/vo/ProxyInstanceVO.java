@@ -14,7 +14,11 @@ public class ProxyInstanceVO implements Serializable {
     @Serial
     private static final long serialVersionUID = 1L;
 
+    // 实例编号（唯一标识）
+    private String instanceNo;
+    // ip地址
     private String ip;
+    // 端口号
     private Integer port;
     // 洲的编号
     private String regionId;
@@ -27,7 +31,6 @@ public class ProxyInstanceVO implements Serializable {
     private Integer status;
     private String username;
     private String pwd;
-    private String instanceNo;
     private Integer renew;
     private String orderNo;
     private String productNo;

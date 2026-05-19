@@ -33,5 +33,14 @@ public interface ProxyRegionDAO {
      * @return ProxyRegion 对象，不存在时返回 null
      */
     ProxyRegion selectByRegionCode(String regionCode);
+
+    /**
+     * 按 region_code 批量查询地域信息（用于消除 N+1 查询）
+     *
+     * @param regionCodes 地域编码集合
+     * @return key=region_code, value=ProxyRegion
+     */
+    Map<String, ProxyRegion> selectByRegionCodes(List<String> regionCodes);
 }
+
 

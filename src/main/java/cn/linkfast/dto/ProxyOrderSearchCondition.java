@@ -31,7 +31,7 @@ public class ProxyOrderSearchCondition implements Serializable {
     /**
      * 订单类型
      */
-    private String orderType;
+    private Integer orderType;
 
     /**
      * 订单号

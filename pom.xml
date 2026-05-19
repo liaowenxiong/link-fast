@@ -230,6 +230,7 @@
                     <source>17</source>
                     <target>17</target>
                     <encoding>UTF-8</encoding>
+                    <parameters>true</parameters>
                 </configuration>
             </plugin>
             <plugin>
@@ -271,6 +272,22 @@
                         </goals>
                     </execution>
                 </executions>
+            </plugin>
+            <!-- Jetty 11 插件（兼容Tomcat10 jakarta，阿里云官方仓库有） -->
+            <plugin>
+                <groupId>org.eclipse.jetty</groupId>
+                <artifactId>jetty-maven-plugin</artifactId>
+                <version>11.0.20</version>
+                <configuration>
+                    <!-- 上下文路径配置（对应原来的 contextPath） -->
+                    <webApp>
+                        <contextPath>/</contextPath>
+                    </webApp>
+                    <!-- 端口配置（对应原来的 port） -->
+                    <httpConnector>
+                        <port>8080</port>
+                    </httpConnector>
+                </configuration>
             </plugin>
         </plugins>
     </build>

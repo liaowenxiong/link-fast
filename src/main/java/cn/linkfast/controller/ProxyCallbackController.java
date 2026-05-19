@@ -5,6 +5,7 @@ import cn.linkfast.dto.ProxyOrderUpdateResultDTO;
 import cn.linkfast.service.ProxyInstanceService;
 import cn.linkfast.service.ProxyOrderService;
 import cn.linkfast.service.ProxyProductService;
+import cn.linkfast.vo.ProxyInstanceSyncResultVO;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -13,6 +14,7 @@ import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 
@@ -77,8 +79,9 @@ public class ProxyCallbackController {
         } else if ("instance".equalsIgnoreCase(type)) {
             // 实例信息变动回调处理
             try {
-                int updatedRows = proxyInstanceService.syncProxyInstance(no);
-                log.info("<<< 实例 {} 同步成功，更新 {} 行", no, updatedRows);
+                ProxyInstanceSyncResultVO syncResult = proxyInstanceService.syncProxyInstance(Collections.singletonList(no));
+                log.info("<<< 实例 {} 同步成功，预期更新 {} 条，实际更新 {} 条",
+                        no, syncResult.getExpectedCount(), syncResult.getActualCount());
             } catch (Exception e) {
                 log.error("<<< 实例 {} 同步失败：{}", no, e.getMessage());
                 return Result.error("实例 " + no + " 同步失败：" + e.getMessage());
